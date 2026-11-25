@@ -1,0 +1,921 @@
+<title>Seguiment de Mecenatge VHIR</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout: one column of stacked bands — controls, figures, the reading, the charts, the detail. */
+  :root {
+    color-scheme: light; /* Deliberately light-only: the brief asks for a light ground and high contrast,
+                            and this page mirrors the running app, which is light-only too. */
+    --page: #f4f5f7;
+    --card: #ffffff;
+    --ink: #16181d;
+    --ink-2: #52514e;
+    --ink-3: #5f6672;
+    --ink-4: #898781;
+    --line: #e3e6eb;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --muted: #eef0f3;
+    /* Chart slots 1 and 2 of the validated categorical set, plus a low-chroma grey for context. */
+    --s1: #2a78d6;
+    --s1-soft: #cde2fb;
+    --s2: #eb6834;
+    --context: #7a818d;
+    --good: #18733a;
+    --radius: 12px;
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 24px 40px;
+  }
+  .shell { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+
+  h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+  p { margin: 0; }
+  .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-size: clamp(20px, 3vw, 26px); font-weight: 600; letter-spacing: -0.01em; margin-top: 2px; }
+  h2 { font-size: 18px; font-weight: 600; }
+  h3 { font-size: 14px; font-weight: 500; }
+  .muted { color: var(--ink-3); font-size: 12px; }
+  .note { color: var(--ink-3); font-size: 12px; line-height: 1.6; }
+
+  .band { background: var(--card); border-radius: var(--radius); box-shadow: 0 0 0 1px rgba(22, 24, 29, 0.1); padding: 16px; }
+  .topline { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: flex-start; justify-content: space-between; }
+
+  /* Controls */
+  .controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; padding: 12px; }
+  .control { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
+  .control > span { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+  select {
+    font: inherit; font-weight: 500; color: inherit; background: var(--card);
+    border: 1px solid #c9ced6; border-radius: 8px; padding: 7px 10px; min-height: 36px; width: 100%;
+  }
+  @media (min-width: 640px) { select { width: 256px; } }
+  select:focus-visible, .seg button:focus-visible { outline: 2px solid #1d5fd1; outline-offset: 1px; }
+  .seg { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-height: 36px; padding: 2px; background: var(--card); border-radius: 8px; box-shadow: inset 0 0 0 1px #c9ced6; }
+  .seg button { font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; white-space: nowrap; }
+  .seg button:hover { background: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; font-weight: 500; }
+
+  /* Initiative heading */
+  .pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .pill { font-size: 11px; font-weight: 500; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .pill.solid { background: var(--ink); color: #fff; }
+  .pill.quiet { background: var(--muted); color: var(--ink-2); }
+  .pill.outline { box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-2); }
+
+  /* Figures */
+  /* The column count follows the number of cards, so none is ever left alone in a row. */
+  .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .cards.three { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+  @media (min-width: 720px) { .cards.five { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 1040px) { .cards.five { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  .card { background: var(--card); border-radius: var(--radius); box-shadow: 0 0 0 1px rgba(22, 24, 29, 0.1); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .card h3 { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .card .value { font-size: clamp(22px, 4vw, 30px); font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+  .card .sub { font-size: 12px; line-height: 1.4; color: var(--ink-3); }
+
+  /* Charts */
+  .charts { display: grid; gap: 20px; }
+  @media (min-width: 900px) { .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .charts .wide { grid-column: 1 / -1; } }
+  figure { margin: 0; min-width: 0; }
+  figcaption { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; list-style: none; margin: 0; padding: 0; }
+  .legend li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .chart { width: 100%; }
+  .chart text { font-family: var(--sans); }
+  .chart .tick { font-size: 11px; fill: var(--ink-4); font-variant-numeric: tabular-nums; }
+  .chart .band { font-family: var(--mono); font-size: 10px; fill: var(--ink-4); font-variant-numeric: tabular-nums; }
+  .chart .peak { font-size: 11px; font-weight: 500; fill: var(--ink-2); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--card); stroke-width: 3px; }
+  .chart .peak.inside { fill: #fff; stroke: none; }
+  .chart .hit { fill: transparent; }
+  .chart .hit:hover, .chart .hit:focus-visible { fill: rgba(22, 24, 29, 0.05); outline: none; }
+
+  .tip { position: absolute; z-index: 5; pointer-events: none; background: var(--ink); color: #fff; border-radius: 6px; padding: 6px 10px; font-size: 11px; line-height: 1.5; box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+  .tip b { display: block; font-weight: 500; margin-bottom: 2px; }
+  .tip .row { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+  .tip .row span:last-child { margin-left: auto; font-weight: 500; }
+  .tip .dot { width: 8px; height: 8px; border-radius: 999px; flex: none; }
+
+  /* Tables */
+  .scroll { overflow-x: auto; margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-weight: 500; color: var(--ink-3); font-size: 12px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.total td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 600; }
+
+  /* Readings */
+  .readings { display: grid; gap: 12px; margin-top: 12px; }
+  @media (min-width: 720px) { .readings { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .reading { border-radius: 10px; padding: 12px; box-shadow: 0 0 0 1px rgba(22,24,29,0.1); }
+  .reading.channel { background: #f3f8fe; box-shadow: 0 0 0 1px rgba(42,120,214,0.3); }
+  .reading.total { background: #f7f8fa; }
+  .reading h4 { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .reading .value { font-size: 20px; font-weight: 600; margin-top: 6px; line-height: 1; }
+
+  .defs { display: grid; gap: 12px 24px; margin-top: 12px; }
+  @media (min-width: 720px) { .defs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .defs dt { font-size: 13px; font-weight: 500; }
+  .defs dt code { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--ink-2); }
+  .defs dd { margin: 2px 0 0; font-size: 12px; line-height: 1.6; color: var(--ink-3); }
+
+  .checks { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .checks li { display: flex; align-items: baseline; gap: 8px; }
+  .checks .ok { color: var(--good); font-weight: 600; }
+  .checks .val { margin-left: auto; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  .caveat { display: flex; gap: 8px; margin-top: 12px; background: #f7f8fa; border-radius: 10px; padding: 12px; font-size: 12px; line-height: 1.6; color: var(--ink-2); }
+  .dashed { border: 1px dashed #c9ced6; border-radius: var(--radius); padding: 16px; }
+  .split { display: grid; gap: 20px; }
+  @media (min-width: 900px) { .split { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .rows { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 0; font-size: 12px; }
+  .rows div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 5px; }
+  .rows div:last-child { border-bottom: 0; }
+  .rows dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+  footer { border-top: 1px solid var(--line); padding-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+
+  /* Tabs */
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+  .tabs button { font: inherit; font-size: 14px; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 8px 12px; color: var(--ink-3); cursor: pointer; white-space: nowrap; }
+  .tabs button:hover { color: var(--ink); }
+  .tabs button[aria-selected="true"] { border-bottom-color: var(--ink); color: var(--ink); font-weight: 500; }
+  .tabs button:focus-visible { outline: 2px solid #1d5fd1; outline-offset: -2px; }
+
+  /* Donors table */
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .search { position: relative; display: flex; flex: 1 1 260px; max-width: 380px; }
+  .search input { font: inherit; font-size: 14px; width: 100%; min-height: 36px; padding: 6px 12px; border: 1px solid #c9ced6; border-radius: 8px; background: var(--card); color: inherit; }
+  .search input:focus-visible { outline: 2px solid #1d5fd1; outline-offset: 1px; }
+  .privacy { display: flex; gap: 8px; background: var(--muted); border-radius: 10px; padding: 12px; font-size: 12px; line-height: 1.6; color: var(--ink-2); }
+  .grid-table { overflow-x: auto; border-radius: 10px; box-shadow: 0 0 0 1px rgba(22,24,29,0.1); }
+  .grid-table table { font-size: 13px; }
+  .grid-table th, .grid-table td { padding: 6px 10px; }
+  .grid-table thead tr:first-child th { background: var(--muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+  .grid-table thead tr:last-child th { background: #f8f9fb; font-size: 12px; }
+  .grid-table .yr { border-left: 1px solid var(--line); }
+  .grid-table tbody tr.out { color: var(--ink-3); }
+  .grid-table tfoot td { border-top: 2px solid var(--line); border-bottom: 0; background: #f8f9fb; font-weight: 600; }
+  .cell { font: inherit; font-size: 12px; min-height: 28px; padding: 3px 6px; border: 1px solid #c9ced6; border-radius: 6px; background: var(--card); color: inherit; }
+  .cell:focus-visible { outline: 2px solid #1d5fd1; outline-offset: 1px; }
+  input.cell { width: 74px; text-align: right; font-variant-numeric: tabular-nums; }
+  input.cell.n { width: 60px; }
+  input.cell:disabled { border-color: transparent; background: none; color: var(--ink-3); }
+  input.cell.unpaid { border-color: rgba(208,59,59,.55); color: #c0392b; }
+  .muted-cell { color: var(--ink-3); font-style: italic; font-size: 12px; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="shell">
+  <header class="topline">
+    <div>
+      <p class="eyebrow">VHIR · Unitat de Mecenatge</p>
+      <h1>Quadre de seguiment de campanyes</h1>
+    </div>
+    <p class="muted" id="reading-stamp"></p>
+  </header>
+
+  <div class="band controls">
+    <label class="control">
+      <span>Campanyes</span>
+      <select id="campaign"></select>
+    </label>
+    <div class="control" id="grouping-control" hidden>
+      <span>Agrupació</span>
+      <div class="seg" role="group" aria-label="Agrupació">
+        <button type="button" data-grouping="day" aria-pressed="true">Per dia</button>
+        <button type="button" data-grouping="week" aria-pressed="false">Per setmana</button>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="pills">
+      <h2 id="campaign-name"></h2>
+      <span class="pill outline" id="campaign-source"></span>
+      <span class="muted" id="campaign-updated"></span>
+    </div>
+  </section>
+
+  <div class="tabs" id="tabs" role="tablist" aria-label="Vistes de la campanya" hidden>
+    <button type="button" role="tab" data-tab="resum" aria-selected="true">Resum</button>
+    <button type="button" role="tab" data-tab="donants" aria-selected="false" id="tab-donors"></button>
+  </div>
+
+  <!-- Donations campaign: the figures -->
+  <div id="impulsa" hidden>
+    <div class="cards five" id="impulsa-cards"></div>
+    <div class="band" style="margin-top:24px">
+      <figure>
+        <figcaption>
+          <h3>Donatius puntuals i nous socis per setmana</h3>
+          <ul class="legend">
+            <li><span class="swatch" style="background:var(--s1)"></span>Donatius puntuals</li>
+            <li><span class="swatch" style="background:var(--s2)"></span>Nous socis</li>
+          </ul>
+        </figcaption>
+        <div id="impulsa-chart" style="position:relative"></div>
+        <p class="note" style="margin-top:4px" id="impulsa-chart-caption"></p>
+        <p class="note" style="margin-top:10px" id="impulsa-cutoff"></p>
+      </figure>
+    </div>
+    <div class="band" style="margin-top:24px">
+      <h3>Criteri de projecció</h3>
+      <p class="note" style="font-family:var(--mono);margin-top:4px" id="impulsa-criterion"></p>
+      <p class="note" style="margin-top:4px">Així es passa d’una alta al que val el seu primer any. A la pestanya de donants i socis es pot canviar la quota d’un any i anotar-hi les que quedin impagades; les xifres de dalt es recalculen amb el que hi hagi anotat.</p>
+      <dl class="defs" id="impulsa-frequency"></dl>
+    </div>
+  </div>
+
+  <!-- Donations campaign: the records behind the figures -->
+  <div id="donors" hidden>
+    <div class="toolbar">
+      <label class="search">
+        <input type="search" id="donor-search" placeholder="Cerca per referència, data, import, origen…" aria-label="Cerca un donant o soci">
+      </label>
+      <p class="muted" id="donor-count"></p>
+    </div>
+    <p class="privacy" style="margin-top:12px">
+      <span aria-hidden="true">🔒</span>
+      <span>En aquesta demo el nom i el correu de cada donant no es carreguen: la taula funciona amb una referència. A la instància del VHIR aquestes dues columnes porten les dades reals i la cerca també hi busca. Tota la resta —origen, estat, quota i impagats— és la de debò i es pot editar aquí. En aquesta previsualització els canvis es veuen a l’instant però no es desen; a l’aplicació es guarden i queden per a tothom.</span>
+    </p>
+    <div class="grid-table" style="margin-top:12px">
+      <table>
+        <thead id="donor-head"></thead>
+        <tbody id="donor-body"></tbody>
+        <tfoot id="donor-foot"></tfoot>
+      </table>
+    </div>
+    <p class="note" style="margin-top:10px">«Quota» és l’import d’una quota aquell any i «Impagats», quantes no s’han cobrat; «Previst» és el que queda, i és el que alimenta les xifres del resum. Una columna nova apareix sola en començar l’any, i l’any vinent hi és sempre perquè s’hi pugui anotar un canvi d’import abans que arribi. Un registre d’un sol pagament no té quotes els anys següents, i per això la seva cel·la queda inactiva.</p>
+  </div>
+
+  <!-- Leads campaign -->
+  <div id="meta" hidden>
+    <div class="cards three" id="meta-cards"></div>
+    <div class="band" style="margin-top:24px">
+      <p id="meta-summary"></p>
+      <p style="margin-top:6px;color:var(--ink-2)" id="meta-change"></p>
+    </div>
+    <div class="band charts" style="margin-top:24px">
+      <figure>
+        <figcaption><h3 id="volume-title"></h3></figcaption>
+        <div id="volume-chart" style="position:relative"></div>
+        <p class="note" style="margin-top:4px" id="volume-caption"></p>
+      </figure>
+      <figure>
+        <figcaption><h3 id="cost-title"></h3></figcaption>
+        <div id="cost-chart" style="position:relative"></div>
+        <p class="note" style="margin-top:4px" id="cost-caption"></p>
+      </figure>
+      <figure class="wide">
+        <figcaption><h3 id="spend-title"></h3></figcaption>
+        <div id="spend-chart" style="position:relative"></div>
+        <p class="note" style="margin-top:4px" id="spend-caption"></p>
+      </figure>
+    </div>
+  </div>
+
+  <section class="band" style="background:#f7f8fa" id="notes-band">
+    <h3>Com es llegeixen aquestes xifres</h3>
+    <dl class="defs" id="metric-notes"></dl>
+  </section>
+
+  <footer>
+    <p class="note" id="foot-1"></p>
+    <p class="note" id="foot-2"></p>
+  </footer>
+</div>
+
+<script type="application/json" id="snapshot">{"generatedAt":"2026-11-25T10:53:44.669Z","today":"2026-11-25","account":{"name":"Vall d'Hebron","currency":"USD"},"window":{"since":"2025-11-25","until":"2026-11-24"},"campaigns":[{"key":"ImpulsaTalent","name":"Impulsa Talent","kind":"donatius","source":"impulsa"},{"key":"Menopausa","name":"Menopausa","kind":"leads","source":"meta","range":{"since":"2026-11-10","until":"2026-11-24"},"totals":{"spend":747.19,"results":4002,"linkClicks":10604,"impressions":250018,"days":15},"series":{"day":[{"label":"10/11","longLabel":"10/11","spend":72.35,"results":419,"cost":0.1727},{"label":"11/11","longLabel":"11/11","spend":68.64,"results":530,"cost":0.1295},{"label":"12/11","longLabel":"12/11","spend":46.74,"results":377,"cost":0.124},{"label":"13/11","longLabel":"13/11","spend":34.88,"results":233,"cost":0.1497},{"label":"14/11","longLabel":"14/11","spend":44.75,"results":267,"cost":0.1676},{"label":"15/11","longLabel":"15/11","spend":61.38,"results":357,"cost":0.1719},{"label":"16/11","longLabel":"16/11","spend":43.27,"results":241,"cost":0.1795},{"label":"17/11","longLabel":"17/11","spend":46.19,"results":236,"cost":0.1957},{"label":"18/11","longLabel":"18/11","spend":52.1,"results":286,"cost":0.1822},{"label":"19/11","longLabel":"19/11","spend":45.94,"results":188,"cost":0.2444},{"label":"20/11","longLabel":"20/11","spend":43.03,"results":167,"cost":0.2577},{"label":"21/11","longLabel":"21/11","spend":58.09,"results":184,"cost":0.3157},{"label":"22/11","longLabel":"22/11","spend":58.04,"results":239,"cost":0.2428},{"label":"23/11","longLabel":"23/11","spend":48.7,"results":181,"cost":0.2691},{"label":"24/11","longLabel":"24/11","spend":23.09,"results":97,"cost":0.238}],"week":[{"label":"09/11","longLabel":"setmana del 09/11 al 15/11","spend":328.74,"results":2183,"cost":0.1506},{"label":"16/11","longLabel":"setmana del 16/11 al 22/11","spend":346.66,"results":1541,"cost":0.225},{"label":"23/11","longLabel":"setmana del 23/11 al 29/11","spend":71.79,"results":278,"cost":0.2582}]}}],"impulsa":{"generatedAt":"2026-11-25","source":{"file":"VAL ImpulsaTalent Socis i Donatius - 2026.csv","sha256":"a7fea0828b6e6296","detailRows":113,"includedRows":109,"note":"Agregat sense noms, correus ni identificadors. La font no entra al repositori ni al navegador."},"cutOff":"2026-11-12","criterion":{"Mensual":12,"Trimestral":4,"Anual":1,"Puntual":1},"cards":{"spendEur":6601,"metaSpendUsd":4820.5,"googleSpendEur":2196.7,"metaSpendEur":4404.3,"impliedUsdToEur":0.9137,"billedEur":7868,"yearValueEur":18213,"ratioBilled":1.19,"ratioYear":2.76},"attribution":[{"key":"meta","label":"Meta","count":103,"billedEur":7509,"yearEur":16495},{"key":"newsletter","label":"Newsletter","count":2,"billedEur":175,"yearEur":900},{"key":"google","label":"Google Ads","count":4,"billedEur":184,"yearEur":818}],"frequency":[{"key":"Mensual","multiplier":12,"recurring":true,"count":52,"billedEur":4152,"yearEur":13512},{"key":"Trimestral","multiplier":4,"recurring":true,"count":12,"billedEur":795,"yearEur":1780},{"key":"Anual","multiplier":1,"recurring":true,"count":11,"billedEur":750,"yearEur":750},{"key":"Puntual","multiplier":1,"recurring":false,"count":34,"billedEur":2171,"yearEur":2171}],"origin":[{"key":"CRM","count":61,"billedEur":4975,"yearEur":12690},{"key":"Donaciones","count":48,"billedEur":2893,"yearEur":5523}],"excluded":{"count":4,"reasons":[{"state":"Exclòs","count":3},{"state":"Cancel·lada","count":1}],"billedEur":0,"yearEur":0},"unpaidQuotas":{"rowsWithValue":0,"note":"La columna «Quotes impagades» és buida a tot el fitxer: no resta res dels totals."},"weekly":[{"weekStart":"2026-06-29","oneOffCount":2,"oneOffEur":245,"recurringCount":4,"recurringEur":375,"yearEur":1145},{"weekStart":"2026-07-06","oneOffCount":7,"oneOffEur":315,"recurringCount":7,"recurringEur":550,"yearEur":1355},{"weekStart":"2026-07-13","oneOffCount":2,"oneOffEur":50,"recurringCount":8,"recurringEur":950,"yearEur":2290},{"weekStart":"2026-07-20","oneOffCount":2,"oneOffEur":100,"recurringCount":8,"recurringEur":850,"yearEur":1945},{"weekStart":"2026-07-27","oneOffCount":4,"oneOffEur":225,"recurringCount":10,"recurringEur":818,"yearEur":2429},{"weekStart":"2026-08-03","oneOffCount":4,"oneOffEur":115,"recurringCount":9,"recurringEur":800,"yearEur":1765},{"weekStart":"2026-08-10","oneOffCount":1,"oneOffEur":25,"recurringCount":4,"recurringEur":340,"yearEur":945},{"weekStart":"2026-08-17","oneOffCount":1,"oneOffEur":50,"recurringCount":0,"recurringEur":0,"yearEur":50},{"weekStart":"2026-08-24","oneOffCount":0,"oneOffEur":0,"recurringCount":0,"recurringEur":0,"yearEur":0},{"weekStart":"2026-08-31","oneOffCount":0,"oneOffEur":0,"recurringCount":0,"recurringEur":0,"yearEur":0},{"weekStart":"2026-09-07","oneOffCount":0,"oneOffEur":0,"recurringCount":0,"recurringEur":0,"yearEur":0},{"weekStart":"2026-09-14","oneOffCount":3,"oneOffEur":170,"recurringCount":3,"recurringEur":125,"yearEur":595},{"weekStart":"2026-09-21","oneOffCount":2,"oneOffEur":75,"recurringCount":9,"recurringEur":413,"yearEur":1927},{"weekStart":"2026-09-28","oneOffCount":0,"oneOffEur":0,"recurringCount":4,"recurringEur":96,"yearEur":536},{"weekStart":"2026-10-05","oneOffCount":0,"oneOffEur":0,"recurringCount":6,"recurringEur":305,"yearEur":1530},{"weekStart":"2026-10-12","oneOffCount":2,"oneOffEur":100,"recurringCount":0,"recurringEur":0,"yearEur":100},{"weekStart":"2026-10-19","oneOffCount":1,"oneOffEur":50,"recurringCount":0,"recurringEur":0,"yearEur":50},{"weekStart":"2026-10-26","oneOffCount":0,"oneOffEur":0,"recurringCount":1,"recurringEur":50,"yearEur":600},{"weekStart":"2026-11-02","oneOffCount":1,"oneOffEur":1,"recurringCount":2,"recurringEur":25,"yearEur":301},{"weekStart":"2026-11-09","oneOffCount":2,"oneOffEur":650,"recurringCount":0,"recurringEur":0,"yearEur":650}],"registrations":{"first":"2026-07-02","last":"2026-11-11","count":109},"checks":[{"id":"billed","label":"Facturació acumulada","computed":7868,"declared":7868,"ok":true},{"id":"year","label":"Valor estimat el primer any","computed":18213,"declared":18213,"ok":true},{"id":"criterion","label":"Import base × criteri = columna del primer any","computed":18213,"declared":18213,"ok":true},{"id":"roas-year","label":"Ràtio sobre la projecció a un any","computed":2.76,"declared":2.76,"ok":true},{"id":"roas-billed","label":"Ràtio sobre la facturació acumulada","computed":1.19,"declared":1.19,"ok":true},{"id":"roas-google-year","label":"ROAS de Google a un any","computed":0.372377,"declared":0.372377,"ok":true},{"id":"roas-google-billed","label":"ROAS de Google acumulat","computed":0.083762,"declared":0.083762,"ok":true},{"id":"roas-meta-year","label":"ROAS de Meta a un any","computed":3.745204,"declared":3.745204,"ok":true},{"id":"roas-meta-billed","label":"ROAS de Meta acumulat","computed":1.704925,"declared":1.704925,"ok":true}],"metaChannelRoasBasis":{"spendEur":4404.3,"yearEur":16495,"billedEur":7509,"roasYear":3.75,"roasBilled":1.7,"reproducesYear":true,"reproducesBilled":true},"declared":{"yearValueEur":18213,"billedEur":7868,"metaSpendUsd":4820.5,"googleSpendEur":2196.7,"combinedSpendEur":6601,"roasYear":2.76,"roasBilled":1.19,"roasYearGoogle":0.3723767469,"roasBilledGoogle":0.08376200665,"roasYearMeta":3.745203551,"roasBilledMeta":1.704924733,"cutOff":"2026-11-12"}},"donors":{"generatedAt":"2026-11-25","sourceSha256":"a7fea0828b6e6296","defaultChannel":"meta","records":[{"ref":"R-001","date":"2026-07-02","system":"CRM","channel":"newsletter","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":125,"firstYearEur":300},{"ref":"R-002","date":"2026-07-02","system":"Donaciones","channel":"meta","base":1,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Exclòs","included":false,"billedEur":0,"firstYearEur":0},{"ref":"R-003","date":"2026-07-02","system":"Donaciones","channel":"meta","base":1,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Exclòs","included":false,"billedEur":0,"firstYearEur":0},{"ref":"R-004","date":"2026-07-02","system":"Donaciones","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Exclòs","included":false,"billedEur":0,"firstYearEur":0},{"ref":"R-005","date":"2026-07-03","system":"Donaciones","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Cancel·lada","included":false,"billedEur":0,"firstYearEur":0},{"ref":"R-006","date":"2026-07-04","system":"CRM","channel":"meta","base":15,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":75,"firstYearEur":180},{"ref":"R-007","date":"2026-07-04","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-008","date":"2026-07-04","system":"CRM","channel":"meta","base":10,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":120},{"ref":"R-009","date":"2026-07-05","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":125,"firstYearEur":300},{"ref":"R-010","date":"2026-07-05","system":"CRM","channel":"meta","base":220,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":220,"firstYearEur":220},{"ref":"R-011","date":"2026-07-06","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":125,"firstYearEur":300},{"ref":"R-012","date":"2026-07-07","system":"CRM","channel":"meta","base":15,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":75,"firstYearEur":180},{"ref":"R-013","date":"2026-07-07","system":"Donaciones","channel":"meta","base":5,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":5,"firstYearEur":5},{"ref":"R-014","date":"2026-07-07","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-015","date":"2026-07-08","system":"Donaciones","channel":"meta","base":100,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":100},{"ref":"R-016","date":"2026-07-09","system":"Donaciones","channel":"meta","base":100,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":100},{"ref":"R-017","date":"2026-07-10","system":"Donaciones","channel":"meta","base":10,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":10,"firstYearEur":10},{"ref":"R-018","date":"2026-07-10","system":"CRM","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-019","date":"2026-07-10","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":125,"firstYearEur":300},{"ref":"R-020","date":"2026-07-11","system":"Donaciones","channel":"meta","base":100,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":100},{"ref":"R-021","date":"2026-07-11","system":"CRM","channel":"meta","base":50,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-022","date":"2026-07-11","system":"Donaciones","channel":"meta","base":5,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":60},{"ref":"R-023","date":"2026-07-12","system":"Donaciones","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-024","date":"2026-07-12","system":"Donaciones","channel":"meta","base":50,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-025","date":"2026-07-13","system":"CRM","channel":"meta","base":50,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":250,"firstYearEur":600},{"ref":"R-026","date":"2026-07-13","system":"CRM","channel":"meta","base":20,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":240},{"ref":"R-027","date":"2026-07-13","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-028","date":"2026-07-15","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-029","date":"2026-07-16","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":125,"firstYearEur":300},{"ref":"R-030","date":"2026-07-16","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":125,"firstYearEur":300},{"ref":"R-031","date":"2026-07-17","system":"CRM","channel":"meta","base":50,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":200},{"ref":"R-032","date":"2026-07-18","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":125,"firstYearEur":300},{"ref":"R-033","date":"2026-07-19","system":"Donaciones","channel":"meta","base":15,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":75,"firstYearEur":180},{"ref":"R-034","date":"2026-07-19","system":"Donaciones","channel":"meta","base":10,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":120},{"ref":"R-035","date":"2026-07-20","system":"CRM","channel":"meta","base":50,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":250,"firstYearEur":600},{"ref":"R-036","date":"2026-07-21","system":"CRM","channel":"meta","base":100,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":100},{"ref":"R-037","date":"2026-07-21","system":"Donaciones","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-038","date":"2026-07-22","system":"Donaciones","channel":"meta","base":25,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-039","date":"2026-07-23","system":"CRM","channel":"meta","base":50,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":200},{"ref":"R-040","date":"2026-07-23","system":"CRM","channel":"meta","base":10,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":120},{"ref":"R-041","date":"2026-07-24","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":125,"firstYearEur":300},{"ref":"R-042","date":"2026-07-24","system":"Donaciones","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-043","date":"2026-07-26","system":"CRM","channel":"meta","base":50,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":200},{"ref":"R-044","date":"2026-07-26","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":300},{"ref":"R-045","date":"2026-07-27","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-046","date":"2026-07-27","system":"CRM","channel":"meta","base":5,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":20,"firstYearEur":60},{"ref":"R-047","date":"2026-07-27","system":"Donaciones","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":300},{"ref":"R-048","date":"2026-07-28","system":"CRM","channel":"meta","base":10,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":40,"firstYearEur":120},{"ref":"R-049","date":"2026-07-28","system":"CRM","channel":"meta","base":50,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":200},{"ref":"R-050","date":"2026-07-28","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":300},{"ref":"R-051","date":"2026-07-29","system":"CRM","channel":"meta","base":25,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":100},{"ref":"R-052","date":"2026-07-31","system":"CRM","channel":"meta","base":50,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":200},{"ref":"R-053","date":"2026-07-31","system":"Donaciones","channel":"meta","base":150,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":150,"firstYearEur":150},{"ref":"R-054","date":"2026-08-01","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-055","date":"2026-08-01","system":"CRM","channel":"meta","base":50,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":200,"firstYearEur":600},{"ref":"R-056","date":"2026-08-02","system":"Donaciones","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":300},{"ref":"R-057","date":"2026-08-02","system":"Donaciones","channel":"meta","base":2,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":8,"firstYearEur":24},{"ref":"R-058","date":"2026-08-02","system":"CRM","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-059","date":"2026-08-03","system":"CRM","channel":"meta","base":100,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":100},{"ref":"R-060","date":"2026-08-04","system":"CRM","channel":"meta","base":100,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":100},{"ref":"R-061","date":"2026-08-04","system":"Donaciones","channel":"meta","base":10,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":40,"firstYearEur":120},{"ref":"R-062","date":"2026-08-04","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-063","date":"2026-08-04","system":"Donaciones","channel":"meta","base":50,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-064","date":"2026-08-05","system":"CRM","channel":"meta","base":15,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":15,"firstYearEur":15},{"ref":"R-065","date":"2026-08-06","system":"CRM","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-066","date":"2026-08-06","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-067","date":"2026-08-07","system":"Donaciones","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":300},{"ref":"R-068","date":"2026-08-07","system":"Donaciones","channel":"meta","base":100,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":100},{"ref":"R-069","date":"2026-08-07","system":"CRM","channel":"meta","base":50,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":200,"firstYearEur":600},{"ref":"R-070","date":"2026-08-09","system":"CRM","channel":"meta","base":25,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":100},{"ref":"R-071","date":"2026-08-09","system":"CRM","channel":"meta","base":15,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":60,"firstYearEur":180},{"ref":"R-072","date":"2026-08-11","system":"Donaciones","channel":"meta","base":5,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":20,"firstYearEur":60},{"ref":"R-073","date":"2026-08-12","system":"CRM","channel":"meta","base":5,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":20,"firstYearEur":60},{"ref":"R-074","date":"2026-08-12","system":"CRM","channel":"meta","base":50,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":200},{"ref":"R-075","date":"2026-08-14","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-076","date":"2026-08-15","system":"CRM","channel":"meta","base":50,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":200,"firstYearEur":600},{"ref":"R-077","date":"2026-08-17","system":"Donaciones","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-078","date":"2026-09-16","system":"Donaciones","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-079","date":"2026-09-17","system":"CRM","channel":"meta","base":25,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":100},{"ref":"R-080","date":"2026-09-19","system":"CRM","channel":"meta","base":25,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-081","date":"2026-09-19","system":"CRM","channel":"meta","base":100,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":100,"firstYearEur":100},{"ref":"R-082","date":"2026-09-19","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":75,"firstYearEur":300},{"ref":"R-083","date":"2026-09-20","system":"CRM","channel":"meta","base":20,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":20,"firstYearEur":20},{"ref":"R-084","date":"2026-09-21","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":75,"firstYearEur":300},{"ref":"R-085","date":"2026-09-21","system":"CRM","channel":"meta","base":10,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":30,"firstYearEur":120},{"ref":"R-086","date":"2026-09-22","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":75,"firstYearEur":300},{"ref":"R-087","date":"2026-09-23","system":"CRM","channel":"meta","base":5,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":15,"firstYearEur":60},{"ref":"R-088","date":"2026-09-23","system":"Donaciones","channel":"meta","base":25,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":100},{"ref":"R-089","date":"2026-09-24","system":"Donaciones","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":75,"firstYearEur":300},{"ref":"R-090","date":"2026-09-24","system":"Donaciones","channel":"meta","base":25,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":25},{"ref":"R-091","date":"2026-09-25","system":"Donaciones","channel":"google","base":6,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":18,"firstYearEur":72},{"ref":"R-092","date":"2026-09-26","system":"Donaciones","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":300},{"ref":"R-093","date":"2026-09-27","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":300},{"ref":"R-094","date":"2026-09-27","system":"Donaciones","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-095","date":"2026-09-29","system":"CRM","channel":"meta","base":20,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":20,"firstYearEur":80},{"ref":"R-096","date":"2026-10-01","system":"CRM","channel":"meta","base":10,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":20,"firstYearEur":120},{"ref":"R-097","date":"2026-10-02","system":"Donaciones","channel":"google","base":3,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":6,"firstYearEur":36},{"ref":"R-098","date":"2026-10-02","system":"Donaciones","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":300},{"ref":"R-099","date":"2026-10-05","system":"CRM","channel":"meta","base":10,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":20,"firstYearEur":120},{"ref":"R-100","date":"2026-10-05","system":"Donaciones","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":300},{"ref":"R-101","date":"2026-10-05","system":"CRM","channel":"meta","base":25,"frequency":"Trimestral","instalments":4,"recurring":true,"state":"Inclòs","included":true,"billedEur":25,"firstYearEur":100},{"ref":"R-102","date":"2026-10-07","system":"CRM","channel":"meta","base":50,"frequency":"Anual","instalments":1,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-103","date":"2026-10-08","system":"CRM","channel":"meta","base":25,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":300},{"ref":"R-104","date":"2026-10-09","system":"Donaciones","channel":"google","base":55,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":110,"firstYearEur":660},{"ref":"R-105","date":"2026-10-12","system":"Donaciones","channel":"google","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-106","date":"2026-10-14","system":"CRM","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-107","date":"2026-10-19","system":"Donaciones","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50},{"ref":"R-108","date":"2026-10-30","system":"CRM","channel":"newsletter","base":50,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":600},{"ref":"R-109","date":"2026-11-02","system":"CRM","channel":"meta","base":5,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":5,"firstYearEur":60},{"ref":"R-110","date":"2026-11-03","system":"Donaciones","channel":"meta","base":1,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":1,"firstYearEur":1},{"ref":"R-111","date":"2026-11-04","system":"CRM","channel":"meta","base":20,"frequency":"Mensual","instalments":12,"recurring":true,"state":"Inclòs","included":true,"billedEur":20,"firstYearEur":240},{"ref":"R-112","date":"2026-11-09","system":"Donaciones","channel":"meta","base":600,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":600,"firstYearEur":600},{"ref":"R-113","date":"2026-11-11","system":"Donaciones","channel":"meta","base":50,"frequency":"Puntual","instalments":1,"recurring":false,"state":"Inclòs","included":true,"billedEur":50,"firstYearEur":50}]}}</script>
+
+<script>
+(() => {
+  "use strict";
+  const DATA = JSON.parse(document.getElementById("snapshot").textContent);
+  const $ = (id) => document.getElementById(id);
+
+  // ---------------------------------------------------------------- formatting
+  const CA = "ca-ES";
+  const NO_VALUE = "–";
+  const nf = (o) => new Intl.NumberFormat(CA, o);
+  const INT = nf({ maximumFractionDigits: 0 });
+  const ok = (v) => v !== null && v !== undefined && Number.isFinite(v);
+  const int = (v) => (ok(v) ? INT.format(v) : NO_VALUE);
+  const money = (v, c, d = 2) => (ok(v) ? nf({ style: "currency", currency: c, currencyDisplay: "narrowSymbol", minimumFractionDigits: d, maximumFractionDigits: d }).format(v) : NO_VALUE);
+  const eur = (v, d = 2) => money(v, "EUR", d);
+  const ratio = (v, d = 2) => (ok(v) ? nf({ minimumFractionDigits: d, maximumFractionDigits: d }).format(v) + "×" : NO_VALUE);
+  const pct = (v, d = 1) => (ok(v) ? nf({ style: "percent", minimumFractionDigits: d, maximumFractionDigits: d }).format(v) : NO_VALUE);
+  const signedPct = (v) => {
+    if (!ok(v)) return NO_VALUE;
+    const size = Math.abs(v * 100);
+    if (size < 0.5) return "0 %";
+    return (v > 0 ? "+" : "−") + nf({ maximumFractionDigits: 0 }).format(size) + " %";
+  };
+  const caDate = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+  const shortDate = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}`;
+  const el = (tag, props = {}, children = []) => {
+    const node = Object.assign(document.createElement(tag), props);
+    for (const child of [].concat(children)) node.append(child);
+    return node;
+  };
+
+  // The two result kinds the account's campaigns optimise for.
+  const RESULTS = {
+    lead: { option: "Leads", one: "lead", many: "leads", the: "els leads", ofThe: "dels leads", cost: "CPL", costLabel: "Cost per lead", cr: "CR Leads", note: "cpl" },
+    purchase: { option: "Compres", one: "compra", many: "compres", the: "les compres", ofThe: "de les compres", cost: "CPA", costLabel: "Cost per compra", cr: "CR Compres", note: "cpa" },
+  };
+  const SOURCE_LABEL = { meta: "Meta Ads", impulsa: "Fitxer de socis i donatius" };
+
+  const METRIC_NOTES = {
+    cpl: { short: "CPL", name: "Cost per lead", formula: "inversió total ÷ leads totals", text: "Quant costa cada contacte aconseguit. Se suma la inversió i els leads de totes les campanyes de la iniciativa i es divideix una suma per l’altra; no és la mitjana dels CPL de cada campanya. Si en un període no hi ha leads, no es pot calcular." },
+    cpa: { short: "CPA", name: "Cost per compra", formula: "inversió total ÷ compres totals", text: "Quant costa cada donatiu o compra registrada per la campanya. Se suma la inversió i les compres de totes les campanyes de la iniciativa i es divideix una suma per l’altra." },
+    roas: { short: "ROAS", name: "Retorn de la inversió publicitària", formula: "valor atribuïble a publicitat ÷ despesa publicitària", text: "Quants euros de retorn genera cada euro d’anuncis. Només té sentit amb el valor que es pot atribuir a la publicitat: si s’hi posa tot el que ha entrat, la xifra barreja orígens i deixa de mesurar el canal." },
+    roi: { short: "ROI", name: "Retorn de la inversió", formula: "ingressos atribuïbles ÷ cost total de la campanya", text: "Com el ROAS, però el denominador inclou tot el cost de la campanya, no només els anuncis: honoraris, producció i plataformes. Sense aquestes partides no es pot calcular." },
+    roiPending: { short: "ROI pendent de costos totals", name: "", formula: "ingressos atribuïbles ÷ cost total de la campanya", text: "A la demo hi ha la despesa d’anuncis de Meta i Google, però no els honoraris ni els costos de producció i plataformes. Mentre falten aquestes partides, es mostra la fórmula i no una xifra." },
+  };
+  const PENDING = [
+    ["StockCrowd", "Donatius i quotes en directe, amb la data de cobrament de cada quota: permetrà recalcular la facturació per període i no només com a instantània."],
+    ["Google Ads", "Inversió i conversions del canal, per completar el ROAS que ara només es calcula amb les files marcades com a Google."],
+    ["GA4", "Recorregut per les landings: sessions, inici de formulari i abandonament, per veure on es perden els donants."],
+    ["Costos totals", "Honoraris, producció i plataformes, les partides que falten per poder calcular el ROI."],
+  ];
+
+  // ---------------------------------------------------------------- the charts
+  const PLOT = { top: 16, right: 8, bottom: 22, left: 44 };
+  const MAX_BAR = 24;
+  const GAP = 2;
+  const SVG = "http://www.w3.org/2000/svg";
+  const svgEl = (tag, attrs = {}) => {
+    const node = document.createElementNS(SVG, tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    return node;
+  };
+
+  /** Round tick values that cover the data, at most `count` of them. */
+  function ticksFor(max, count = 4) {
+    if (!(max > 0)) return [0];
+    const rough = max / count;
+    const magnitude = 10 ** Math.floor(Math.log10(rough));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= rough) ?? magnitude * 10;
+    const ticks = [];
+    for (let v = 0; v <= max + step / 2; v += step) ticks.push(Number(v.toFixed(10)));
+    return ticks;
+  }
+
+  /** A column with a 4px rounded top and a square foot on the baseline. */
+  function columnPath(x, w, top, baseline) {
+    const h = baseline - top;
+    if (h <= 0) return "";
+    const r = Math.min(4, w / 2, h);
+    return `M${x} ${baseline} L${x} ${top + r} Q${x} ${top} ${x + r} ${top} L${x + w - r} ${top} Q${x + w} ${top} ${x + w} ${top + r} L${x + w} ${baseline} Z`;
+  }
+
+  function frame(host, count, max, height) {
+    const width = Math.max(240, host.clientWidth || 640);
+    const ticks = ticksFor(max);
+    const top = ticks[ticks.length - 1] || 1;
+    const slot = (width - PLOT.left - PLOT.right) / Math.max(1, count);
+    const svg = svgEl("svg", { width, height, class: "chart", role: "img" });
+    return {
+      svg, width, height, slot, ticks,
+      band: (i) => PLOT.left + slot * (i + 0.5),
+      scale: (v) => height - PLOT.bottom - (v / top) * (height - PLOT.bottom - PLOT.top),
+    };
+  }
+
+  function drawGrid(g, format) {
+    for (const tick of g.ticks) {
+      const y = g.scale(tick);
+      g.svg.append(svgEl("line", { x1: PLOT.left, x2: g.width - PLOT.right, y1: y, y2: y, stroke: tick === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1, "shape-rendering": "crispEdges" }));
+      const label = svgEl("text", { x: PLOT.left - 8, y, "text-anchor": "end", "dominant-baseline": "middle", class: "tick" });
+      label.textContent = format(tick);
+      g.svg.append(label);
+    }
+  }
+
+  function drawBandLabels(g, labels) {
+    const every = Math.max(1, Math.ceil(46 / g.slot));
+    labels.forEach((text, i) => {
+      if ((labels.length - 1 - i) % every !== 0) return;
+      const label = svgEl("text", { x: g.band(i), y: g.height - 6, "text-anchor": "middle", class: "band" });
+      label.textContent = text;
+      g.svg.append(label);
+    });
+  }
+
+  function drawPeak(g, index, top, text) {
+    const inside = top - 6 < PLOT.top;
+    const margin = text.length * 3.2;
+    const x = Math.min(Math.max(g.band(index), PLOT.left + margin), g.width - PLOT.right - margin);
+    const node = svgEl("text", { x, y: inside ? top + 14 : top - 6, "text-anchor": "middle", class: inside ? "peak inside" : "peak" });
+    node.textContent = text;
+    g.svg.append(node);
+  }
+
+  /** The hover layer: a band per period, wider than the mark, with a tooltip that follows it. */
+  function addHover(host, g, count, title, rows) {
+    const tip = el("div", { className: "tip", hidden: true });
+    host.append(tip);
+    const show = (i) => {
+      tip.replaceChildren(el("b", { textContent: title(i) }));
+      for (const row of rows(i)) {
+        const line = el("div", { className: "row" });
+        if (row.color) line.append(el("span", { className: "dot", style: `background:${row.color}` }));
+        line.append(el("span", { textContent: row.label }), el("span", { textContent: row.value }));
+        tip.append(line);
+      }
+      tip.hidden = false;
+      const width = tip.offsetWidth;
+      tip.style.left = `${Math.min(Math.max(g.band(i) - width / 2, 2), g.width - width - 2)}px`;
+      tip.style.top = `${Math.max(PLOT.top - 10, 0)}px`;
+    };
+    for (let i = 0; i < count; i++) {
+      const hit = svgEl("rect", { x: g.band(i) - g.slot / 2, y: PLOT.top - 12, width: g.slot, height: g.height - PLOT.bottom - PLOT.top + 12, class: "hit", tabindex: "0" });
+      const name = svgEl("title");
+      name.textContent = `${title(i)}: ${rows(i).map((r) => `${r.label} ${r.value}`).join(", ")}`;
+      hit.append(name);
+      const index = i;
+      hit.addEventListener("pointerenter", () => show(index));
+      hit.addEventListener("focus", () => show(index));
+      hit.addEventListener("pointerleave", () => { tip.hidden = true; });
+      hit.addEventListener("blur", () => { tip.hidden = true; });
+      g.svg.append(hit);
+    }
+  }
+
+  function columnChart(host, { points, format, axisFormat, color = "var(--s1)", height = 150, seriesLabel, extraRows }) {
+    host.replaceChildren();
+    const max = Math.max(0, ...points.map((p) => p.value ?? 0));
+    const g = frame(host, points.length, max, height);
+    g.svg.setAttribute("aria-label", `${seriesLabel} per període.`);
+    drawGrid(g, axisFormat ?? format);
+    let peak = 0;
+    points.forEach((p, i) => {
+      if ((p.value ?? 0) > (points[peak].value ?? -1)) peak = i;
+      if (p.value === null) return;
+      const w = Math.max(2, Math.min(MAX_BAR, g.slot - GAP));
+      g.svg.append(svgEl("path", { d: columnPath(g.band(i) - w / 2, w, g.scale(p.value), g.scale(0)), fill: color, opacity: p.complete === false ? 0.45 : 1 }));
+    });
+    if (max > 0) drawPeak(g, peak, g.scale(points[peak].value ?? 0), format(points[peak].value));
+    drawBandLabels(g, points.map((p) => p.label));
+    host.append(g.svg);
+    addHover(host, g, points.length, (i) => points[i].longLabel, (i) => [{ label: seriesLabel, value: format(points[i].value), color }, ...(extraRows?.(i) ?? [])]);
+  }
+
+  function lineChart(host, { points, format, axisFormat, color = "var(--s2)", height = 150, seriesLabel, extraRows }) {
+    host.replaceChildren();
+    const max = Math.max(0, ...points.map((p) => p.value ?? 0));
+    const g = frame(host, points.length, max, height);
+    g.svg.setAttribute("aria-label", `${seriesLabel} per període.`);
+    drawGrid(g, axisFormat ?? format);
+    // A gap in the line is a period the figure cannot be computed for, not a zero.
+    const segments = [];
+    points.forEach((p, i) => {
+      if (p.value === null) { if (segments.at(-1)?.length) segments.push([]); return; }
+      if (!segments.length) segments.push([]);
+      segments.at(-1).push({ i, x: g.band(i), y: g.scale(p.value) });
+    });
+    const drawn = segments.filter((s) => s.length);
+    for (const segment of drawn) {
+      const line = segment.map((p) => `${p.x} ${p.y}`).join(" L");
+      if (segment.length > 1) g.svg.append(svgEl("path", { d: `M${line} L${segment.at(-1).x} ${g.scale(0)} L${segment[0].x} ${g.scale(0)} Z`, fill: color, opacity: 0.1 }));
+      g.svg.append(svgEl("path", { d: segment.length > 1 ? `M${line}` : `M${segment[0].x - 4} ${segment[0].y} L${segment[0].x + 4} ${segment[0].y}`, fill: "none", stroke: color, "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    }
+    const last = drawn.at(-1)?.at(-1);
+    if (last) {
+      g.svg.append(svgEl("circle", { cx: last.x, cy: last.y, r: 4, fill: color, stroke: "var(--card)", "stroke-width": 2 }));
+      const right = last.x > g.width / 2;
+      const label = svgEl("text", { x: right ? last.x - 8 : last.x + 8, y: Math.max(last.y - 8, PLOT.top - 2), "text-anchor": right ? "end" : "start", class: "peak" });
+      label.textContent = format(points[last.i].value);
+      g.svg.append(label);
+    }
+    drawBandLabels(g, points.map((p) => p.label));
+    host.append(g.svg);
+    addHover(host, g, points.length, (i) => points[i].longLabel, (i) => [{ label: seriesLabel, value: format(points[i].value), color }, ...(extraRows?.(i) ?? [])]);
+  }
+
+  function stackedChart(host, { labels, series, format, height = 170, extraRows }) {
+    host.replaceChildren();
+    const totals = labels.map((_, i) => series.reduce((t, s) => t + s.value(i), 0));
+    const g = frame(host, labels.length, Math.max(0, ...totals), height);
+    g.svg.setAttribute("aria-label", `${series.map((s) => s.label).join(" i ")} per setmana.`);
+    drawGrid(g, format);
+    const w = Math.max(3, Math.min(MAX_BAR, g.slot - GAP));
+    labels.forEach((_, i) => {
+      let base = 0;
+      for (const s of series) {
+        const value = s.value(i);
+        if (value <= 0) continue;
+        const top = g.scale(base + value);
+        const bottom = g.scale(base);
+        base += value;
+        const isTop = Math.abs(base - totals[i]) < 1e-9;
+        const h = Math.max(1, bottom - top - (isTop ? 0 : GAP));
+        g.svg.append(isTop
+          ? svgEl("path", { d: columnPath(g.band(i) - w / 2, w, top, top + h), fill: s.color })
+          : svgEl("rect", { x: g.band(i) - w / 2, y: top, width: w, height: h, fill: s.color }));
+      }
+    });
+    let peak = 0;
+    totals.forEach((v, i) => { if (v > totals[peak]) peak = i; });
+    if (totals[peak] > 0) drawPeak(g, peak, g.scale(totals[peak]), format(totals[peak]));
+    drawBandLabels(g, labels.map((l) => l.label));
+    host.append(g.svg);
+    addHover(host, g, labels.length,
+      (i) => labels[i].longLabel,
+      (i) => [...series.map((s) => ({ label: s.label, value: format(s.value(i)), color: s.color })), { label: "Total", value: format(totals[i]) }, ...(extraRows?.(i) ?? [])]);
+  }
+  window.__charts = { columnChart, lineChart, stackedChart };
+  window.__fmt = { int, money, eur, ratio, pct, signedPct, caDate, shortDate, el, NO_VALUE, RESULTS, SOURCE_LABEL, METRIC_NOTES, PENDING, DATA, $ };
+})();
+</script>
+
+<script>
+(() => {
+  "use strict";
+  const { columnChart, lineChart, stackedChart } = window.__charts;
+  const { int, money, eur, ratio, pct, signedPct, caDate, shortDate, el, NO_VALUE, DATA, $ } = window.__fmt;
+
+  const CURRENCY = DATA.account.currency;
+  const cash = (v, d = 2) => money(v, CURRENCY, d);
+  const impulsa = DATA.impulsa;
+  const records = DATA.donors.records;
+  const SOURCE_LABEL = { meta: "Meta Ads", impulsa: "Fitxer de socis i donatius" };
+  const KIND_LABEL = { leads: "Campanyes de leads", donatius: "Campanyes de donatius i socis" };
+
+  const CHANNEL_OPTIONS = [
+    { key: "meta", label: "Meta" },
+    { key: "google", label: "Google Ads" },
+    { key: "newsletter", label: "Newsletter" },
+    { key: "altres", label: "Altres" },
+  ];
+  const STATE_OPTIONS = ["Inclòs", "Exclòs", "Cancel·lada"];
+  const INCLUDED_STATE = "Inclòs";
+  const channelLabel = (key) => CHANNEL_OPTIONS.find((c) => c.key === key)?.label ?? key;
+
+  const NOTES = {
+    cpl: { short: "CPL", name: "Cost per lead", formula: "inversió total ÷ leads totals", text: "Quant costa cada contacte aconseguit. Se suma la inversió i els leads de totes les campanyes del grup i es divideix una suma per l’altra; no és la mitjana dels CPL de cada campanya. Si en un període no hi ha leads, no es pot calcular." },
+    roas: { short: "ROAS", name: "Retorn de la inversió publicitària", formula: "retorn ÷ despesa publicitària", text: "Quants euros de retorn genera cada euro d’anuncis. El ROAS actual fa servir el que s’ha facturat fins avui. El ROAS del primer any suma, de cada registre, tots els anys que ha estat en marxa fins a l’any en curs: un soci donat d’alta el 2026, mirat el 2028, hi aporta el 2026, el 2027 i el 2028, i un soci nou del 2028 hi aporta el seu primer any. Mentre tots els registres són d’enguany, la xifra coincideix amb la projecció a un any del fitxer. Les quotes marcades com a impagades a la taula de donants es resten de l’any que els toca." },
+    roiPending: { short: "ROI pendent de costos totals", name: "", formula: "ingressos atribuïbles ÷ cost total de la campanya", text: "Hi ha la despesa d’anuncis de Meta i Google, però no els honoraris ni els costos de producció i plataformes. Mentre falten aquestes partides, es mostra la fórmula i no una xifra." },
+  };
+
+  // ------------------------------------------------------- donors: the same rules as the app
+  const yearOf = (iso) => Number(iso.slice(0, 4));
+  const round2 = (v) => Math.round(v * 100) / 100;
+  let overrides = {};
+  let query = "";
+  let tab = "resum";
+  let selected = DATA.campaigns[0].key;
+  let grouping = null;
+
+  function yearColumns() {
+    const first = Math.min(...records.map((r) => yearOf(r.date)));
+    const edited = Object.values(overrides).flatMap((o) => Object.keys(o.years ?? {}).map(Number));
+    const last = Math.max(yearOf(DATA.today), ...edited, first);
+    const years = [];
+    for (let y = first; y <= last + 1; y++) years.push(y);
+    return years;
+  }
+
+  const defaultInstalments = (record, year) => (year === yearOf(record.date) || record.recurring ? record.instalments : 0);
+
+  function resolveRow(record, years) {
+    const override = overrides[record.ref] ?? {};
+    const state = override.state ?? record.state;
+    const channel = override.channel ?? record.channel;
+    const counts = state === INCLUDED_STATE;
+    const thisYear = yearOf(DATA.today);
+    const cells = years.map((year) => {
+      const edit = override.years?.[String(year)] ?? {};
+      const quota = edit.quota ?? record.base;
+      const instalments = defaultInstalments(record, year);
+      const unpaid = Math.min(Math.max(edit.unpaid ?? 0, 0), instalments);
+      return { year, quota, instalments, unpaid, value: counts ? round2(quota * Math.max(0, instalments - unpaid)) : 0, edited: edit.quota !== undefined || (edit.unpaid ?? 0) > 0 };
+    });
+    const unpaidSoFar = cells.filter((c) => c.year <= thisYear).reduce((t, c) => t + c.unpaid * c.quota, 0);
+    return {
+      ...record, channel, channelName: channelLabel(channel), state, counts,
+      firstYear: yearOf(record.date), years: cells,
+      billedEffective: counts ? round2(Math.max(0, record.billedEur - unpaidSoFar)) : 0,
+      edited: cells.some((c) => c.edited) || override.channel !== undefined || override.state !== undefined,
+    };
+  }
+
+  function totalsOf(rows, years) {
+    const thisYear = yearOf(DATA.today);
+    const byYear = Object.fromEntries(years.map((y) => [y, 0]));
+    let billedEur = 0, firstYearEur = 0, generatedEur = 0, counted = 0, edited = 0, unpaid = 0;
+    let generatedFrom = thisYear;
+    for (const row of rows) {
+      if (row.edited) edited++;
+      for (const cell of row.years) {
+        byYear[cell.year] = round2((byYear[cell.year] ?? 0) + cell.value);
+        if (row.counts) unpaid += cell.unpaid;
+      }
+      if (!row.counts) continue;
+      counted++;
+      billedEur = round2(billedEur + row.billedEffective);
+      firstYearEur = round2(firstYearEur + (row.years.find((c) => c.year === row.firstYear)?.value ?? 0));
+      // Every year this record has run, up to and including the one in course.
+      generatedEur = round2(generatedEur + row.years.filter((c) => c.year >= row.firstYear && c.year <= thisYear).reduce((t, c) => t + c.value, 0));
+      generatedFrom = Math.min(generatedFrom, row.firstYear);
+    }
+    return { billedEur, firstYearEur, generatedEur, generatedFrom, generatedTo: thisYear, byYear, counted, edited, unpaid };
+  }
+
+  function searchRows(rows) {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return rows;
+    const terms = needle.split(/\s+/);
+    return rows.filter((row) => {
+      const hay = [row.ref, caDate(row.date), row.date, row.system, row.channelName, row.frequency, row.state, String(row.base), String(row.billedEur)].join(" ").toLowerCase();
+      return terms.every((t) => hay.includes(t));
+    });
+  }
+
+  function setEdit(ref, patch) {
+    const record = records.find((r) => r.ref === ref);
+    const next = { ...(overrides[ref] ?? {}) };
+    if ("year" in patch) {
+      const years = { ...(next.years ?? {}) };
+      const cell = { ...(years[String(patch.year)] ?? {}) };
+      if (patch.quota !== undefined) {
+        if (patch.quota === record.base) delete cell.quota; else cell.quota = patch.quota;
+      }
+      if (patch.unpaid !== undefined) {
+        if (patch.unpaid <= 0) delete cell.unpaid; else cell.unpaid = patch.unpaid;
+      }
+      if (Object.keys(cell).length) years[String(patch.year)] = cell; else delete years[String(patch.year)];
+      if (Object.keys(years).length) next.years = years; else delete next.years;
+    }
+    if (patch.channel !== undefined) {
+      if (patch.channel === record.channel) delete next.channel; else next.channel = patch.channel;
+    }
+    if (patch.state !== undefined) {
+      if (patch.state === record.state) delete next.state; else next.state = patch.state;
+    }
+    if (Object.keys(next).length) overrides[ref] = next; else delete overrides[ref];
+    render();
+  }
+
+  const card = (label, value, sub) => {
+    const node = el("div", { className: "card" }, [el("h3", { textContent: label }), el("div", { className: "value", textContent: value })]);
+    if (sub) node.append(el("p", { className: "sub" }, [].concat(sub)));
+    return node;
+  };
+
+  function choice(value, options, label, onChange) {
+    const known = options.some((o) => o.value === value);
+    const select = el("select", { className: "cell", "aria-label": label });
+    select.setAttribute("aria-label", label);
+    if (!known) select.append(el("option", { value, textContent: `${value} (sense reconèixer)` }));
+    for (const option of options) select.append(el("option", { value: option.value, textContent: option.label }));
+    select.value = value;
+    if (!known) select.style.borderColor = "rgba(208,59,59,.6)";
+    select.addEventListener("change", () => onChange(select.value));
+    return select;
+  }
+
+  function numberCell({ value, min, max, step, disabled, label, cls, onChange }) {
+    const input = el("input", { type: "number", className: `cell${cls ? " " + cls : ""}`, value: String(value), disabled: !!disabled });
+    input.min = String(min);
+    if (max !== undefined) input.max = String(max);
+    input.step = step;
+    input.setAttribute("aria-label", label);
+    input.addEventListener("change", () => onChange(Number(input.value)));
+    return input;
+  }
+
+  // ---------------------------------------------------------------- renderers
+  function renderDonors() {
+    const years = yearColumns();
+    const rows = records.map((r) => resolveRow(r, years));
+    const visible = searchRows(rows);
+    const all = totalsOf(rows, years);
+    const shown = totalsOf(visible, years);
+
+    $("donor-count").textContent = `${query ? `${int(visible.length)} de ${int(rows.length)} registres` : `${int(rows.length)} registres`} · ${int(all.counted)} computables · ${int(all.edited)} amb correccions a mà`;
+
+    const head = el("tr", {}, [el("th", { colSpan: 9, textContent: "Registre" })]);
+    for (const year of years) head.append(el("th", { colSpan: 3, className: "yr", textContent: String(year) }));
+    const sub = el("tr", {}, ["Ref.", "Donant", "Correu", "Data", "Origen"].map((t) => el("th", { textContent: t })));
+    sub.append(el("th", { className: "num", textContent: "Import base" }), el("th", { textContent: "Freqüència" }), el("th", { textContent: "Estat" }), el("th", { className: "num", textContent: "Facturat" }));
+    for (const year of years) {
+      sub.append(el("th", { className: "num yr", textContent: "Quota" }), el("th", { className: "num", textContent: "Impagats" }), el("th", { className: "num", textContent: "Previst" }));
+    }
+    $("donor-head").replaceChildren(head, sub);
+
+    const body = visible.map((row) => {
+      const tr = el("tr", { className: row.counts ? "" : "out" }, [
+        el("td", { style: "font-family:var(--mono);font-size:12px", textContent: row.ref }),
+        el("td", { className: "muted-cell", textContent: "ocult" }),
+        el("td", { className: "muted-cell", textContent: "ocult" }),
+        el("td", { className: "num", style: "text-align:left", textContent: caDate(row.date) }),
+      ]);
+      tr.append(el("td", {}, [choice(row.channel, CHANNEL_OPTIONS.map((o) => ({ value: o.key, label: o.label })), `Origen del trànsit de ${row.ref}`, (channel) => setEdit(row.ref, { channel }))]));
+      tr.append(el("td", { className: "num", textContent: eur(row.base, 0) }), el("td", { textContent: row.frequency }));
+      tr.append(el("td", {}, [choice(row.state, STATE_OPTIONS.map((o) => ({ value: o, label: o })), `Estat de ${row.ref}`, (state) => setEdit(row.ref, { state }))]));
+      tr.append(el("td", { className: "num", textContent: eur(row.billedEffective, 0) }));
+      for (const cell of row.years) {
+        tr.append(el("td", { className: "num yr" }, [numberCell({
+          value: cell.quota, min: 0, step: "0.01", disabled: cell.instalments === 0,
+          label: `Quota de ${row.ref} el ${cell.year}`, onChange: (quota) => setEdit(row.ref, { year: cell.year, quota }),
+        })]));
+        tr.append(el("td", { className: "num" }, [numberCell({
+          value: cell.unpaid, min: 0, max: cell.instalments, step: "1", disabled: cell.instalments === 0,
+          cls: cell.unpaid > 0 ? "unpaid n" : "n", label: `Quotes impagades de ${row.ref} el ${cell.year}, de ${cell.instalments}`,
+          onChange: (unpaid) => setEdit(row.ref, { year: cell.year, unpaid }),
+        })]));
+        tr.append(el("td", { className: "num", style: cell.edited ? "font-weight:600" : "", textContent: cell.instalments === 0 ? "–" : eur(cell.value, 0) }));
+      }
+      return tr;
+    });
+    if (!visible.length) body.push(el("tr", {}, [el("td", { colSpan: 9 + years.length * 3, style: "text-align:center;padding:24px;color:var(--ink-3)", textContent: `Cap registre coincideix amb «${query}».` })]));
+    $("donor-body").replaceChildren(...body);
+
+    const foot = el("tr", {}, [el("td", { colSpan: 8, textContent: query ? `Total dels ${int(visible.length)} registres filtrats` : "Total de tots els registres computables" }), el("td", { className: "num", textContent: eur(shown.billedEur, 0) })]);
+    for (const year of years) {
+      foot.append(el("td", { className: "yr" }), el("td", { className: "num", style: "font-weight:400;color:var(--ink-3);font-size:12px", textContent: shown.unpaid > 0 ? `${int(shown.unpaid)} impag.` : "" }), el("td", { className: "num", textContent: eur(shown.byYear[year] ?? 0, 0) }));
+    }
+    $("donor-foot").replaceChildren(foot);
+    return { years, all };
+  }
+
+  function renderImpulsa(all) {
+    const spend = impulsa.cards.spendEur;
+    const roasBilled = spend > 0 ? all.billedEur / spend : null;
+    const roasYear = spend > 0 ? all.generatedEur / spend : null;
+    const yearsCovered = all.generatedFrom === all.generatedTo
+      ? `El primer any de cada alta, segons el criteri del fitxer. Totes són del ${all.generatedTo}.`
+      : `Tot el que han generat les altes del ${all.generatedFrom} ençà, any a any fins al ${all.generatedTo}, més el primer any de les noves.`;
+    $("impulsa-cards").replaceChildren(
+      card("Inversió aproximada", eur(spend, 0), `Meta ${new Intl.NumberFormat("ca-ES", { minimumFractionDigits: 2 }).format(impulsa.cards.metaSpendUsd)} $ i Google ${eur(impulsa.cards.googleSpendEur)}, convertits a ${new Intl.NumberFormat("ca-ES", { minimumFractionDigits: 4 }).format(impulsa.cards.impliedUsdToEur)} €/$`),
+      card("Facturació acumulada", eur(all.billedEur, 0), `Cobrat fins a la data de tall, ${caDate(impulsa.cutOff)}`),
+      card("ROAS actual", ratio(roasBilled), `${eur(all.billedEur, 0)} facturats ÷ ${eur(spend, 0)} d’inversió`),
+      card("Valor estimat el primer any", eur(all.generatedEur, 0), yearsCovered),
+      card("ROAS del primer any", ratio(roasYear), `${eur(all.generatedEur, 0)} generats ÷ ${eur(spend, 0)} d’inversió`),
+    );
+
+    const weeks = impulsa.weekly;
+    const wt = weeks.reduce((t, w) => ({ one: t.one + w.oneOffCount, rec: t.rec + w.recurringCount }), { one: 0, rec: 0 });
+    stackedChart($("impulsa-chart"), {
+      labels: weeks.map((w) => {
+        const start = new Date(w.weekStart + "T00:00:00Z");
+        const end = new Date(start.getTime() + 6 * 86400000);
+        const dm = (d) => String(d.getUTCDate()).padStart(2, "0") + "/" + String(d.getUTCMonth() + 1).padStart(2, "0");
+        return { label: dm(start), longLabel: `setmana del ${dm(start)} al ${dm(end)}` };
+      }),
+      series: [
+        { label: "Donatius puntuals", color: "var(--s1)", value: (i) => weeks[i].oneOffCount },
+        { label: "Nous socis", color: "var(--s2)", value: (i) => weeks[i].recurringCount },
+      ],
+      format: (v) => int(v),
+      extraRows: (i) => [
+        { label: "Facturat la setmana", value: eur(weeks[i].oneOffEur + weeks[i].recurringEur, 0) },
+        { label: "Valor al primer any", value: eur(weeks[i].yearEur, 0) },
+      ],
+    });
+    $("impulsa-chart-caption").textContent = `Per data de registre, del ${caDate(impulsa.registrations.first)} al ${caDate(impulsa.registrations.last)}. ${int(wt.one)} donatius puntuals i ${int(wt.rec)} nous socis en ${int(weeks.length)} setmanes. Les files excloses i la cancel·lada no hi consten.`;
+    $("impulsa-cutoff").textContent = `Les xifres acumulades són una instantània amb data de tall ${caDate(impulsa.cutOff)}: el fitxer no porta la despesa diària ni la data de cobrament de cada quota, de manera que el gràfic va per data de registre i les targetes es mantenen a la data de tall.`;
+    $("impulsa-criterion").textContent = Object.entries(impulsa.criterion).map(([k, m]) => `${k.toLowerCase()} ×${m}`).join(" · ");
+    $("impulsa-frequency").replaceChildren(...impulsa.frequency.map((f) =>
+      el("div", {}, [
+        el("dt", {}, [f.key, el("code", { textContent: ` ×${f.multiplier}` })]),
+        el("dd", { textContent: `${int(f.count)} ${f.recurring ? "socis" : "donatius"} · ${eur(f.yearEur, 0)} el primer any` }),
+      ])));
+  }
+
+  function renderMeta(campaign, mode) {
+    const t = campaign.totals;
+    const cost = t.results > 0 ? t.spend / t.results : null;
+    const points = campaign.series[mode];
+    const perPeriod = mode === "day" ? "per dia" : "per setmana";
+    const span = `del ${shortDate(campaign.range.since)} al ${shortDate(campaign.range.until)}`;
+
+    $("meta-cards").replaceChildren(
+      card("Inversió", cash(t.spend), `${int(t.days)} dies amb publicació`),
+      card("Leads", int(t.results), `${int(t.impressions)} impressions`),
+      card("Cost per lead", cash(cost), t.results === 0 ? "Sense leads en aquest període" : `${cash(t.spend, 0)} ÷ ${int(t.results)} leads`),
+    );
+
+    $("meta-summary").textContent = t.results === 0
+      ? `${cash(t.spend)} d’inversió en ${t.days} dies de publicació, sense leads en aquest període: el CPL no es pot calcular.`
+      : `${int(t.results)} ${t.results === 1 ? "lead" : "leads"} amb ${cash(t.spend)} d’inversió: ${cash(cost)} per lead.`;
+
+    const complete = points.filter((p) => p.spend > 0 || p.results > 0);
+    let change = null;
+    if (complete.length >= 2) {
+      const now = complete.at(-1), before = complete.at(-2);
+      const d = (a, b) => (b > 0 ? a / b - 1 : null);
+      const rc = d(now.results, before.results);
+      const cc = now.cost !== null && before.cost !== null ? d(now.cost, before.cost) : null;
+      const sc = d(now.spend, before.spend);
+      const size = (x) => signedPct(x).replace(/^[+−]/, "");
+      const parts = [];
+      if (rc !== null && Math.abs(rc) >= 0.05) parts.push(`els leads ${rc > 0 ? "han pujat" : "han baixat"} un ${size(rc)}`);
+      if (cc !== null && Math.abs(cc) >= 0.05) parts.push(`el CPL ${cc > 0 ? "ha pujat" : "ha baixat"} un ${size(cc)}`);
+      const which = before.longLabel.replace(/^setmana /, "");
+      const head = mode === "day" ? "Respecte del dia anterior" : "Respecte de la setmana anterior";
+      change = parts.length
+        ? `${head} (${which}), ${parts.join(" i ")}, ${sc === null || Math.abs(sc) < 0.05 ? `amb una inversió pràcticament igual (${signedPct(sc ?? 0)})` : `amb una inversió ${sc > 0 ? "més alta" : "més baixa"} (${signedPct(sc)})`}.`
+        : `${head} (${which}), els leads i el CPL s’han mantingut.`;
+    }
+    $("meta-change").textContent = change ?? "";
+    $("meta-change").hidden = !change;
+
+    const spendRow = (i) => [{ label: "Inversió", value: cash(points[i].spend) }];
+    const compact = (v) => (Math.abs(v) >= 1000 ? `${int(v / 1000)} k` : int(v));
+    const topCost = Math.max(0, ...points.map((p) => p.cost ?? 0));
+
+    $("volume-title").textContent = `Leads ${perPeriod}`;
+    $("volume-caption").textContent = `Volum dels leads, ${span}.`;
+    columnChart($("volume-chart"), { points: points.map((p) => ({ label: p.label, longLabel: p.longLabel, value: p.results })), format: (v) => int(v), axisFormat: compact, seriesLabel: "Leads", extraRows: spendRow });
+
+    $("cost-title").textContent = `Cost per lead ${perPeriod}`;
+    $("cost-caption").textContent = `El cost per lead del període, ${span}. Un tall vol dir que aquell període no va tenir leads.`;
+    lineChart($("cost-chart"), { points: points.map((p) => ({ label: p.label, longLabel: p.longLabel, value: p.cost })), format: (v) => cash(v), axisFormat: (v) => cash(v, topCost >= 10 ? 0 : 2), seriesLabel: "CPL", extraRows: (i) => [{ label: "Leads", value: int(points[i].results) }, ...spendRow(i)] });
+
+    $("spend-title").textContent = `Inversió ${perPeriod}`;
+    $("spend-caption").textContent = `Serveix per veure si el canvi de CPL coincideix amb una variació de la inversió, ${span}.`;
+    columnChart($("spend-chart"), { points: points.map((p) => ({ label: p.label, longLabel: p.longLabel, value: p.spend })), format: (v) => cash(v), axisFormat: (v) => cash(v, 0), color: "var(--context)", height: 110, seriesLabel: "Inversió", extraRows: (i) => [{ label: "Leads", value: int(points[i].results) }, { label: "CPL", value: cash(points[i].cost) }] });
+  }
+
+  // ---------------------------------------------------------------- the page
+  function render() {
+    const campaign = DATA.campaigns.find((c) => c.key === selected);
+    const donations = campaign.kind === "donatius";
+
+    $("campaign-name").textContent = campaign.name;
+    $("campaign-source").textContent = SOURCE_LABEL[campaign.source];
+    $("campaign-updated").textContent = donations
+      ? `Dades actualitzades: Fitxer de socis i donatius a ${caDate(impulsa.cutOff)}`
+      : `Dades actualitzades: Meta Ads a ${caDate(campaign.range.until)}`;
+
+    $("tabs").hidden = !donations;
+    $("grouping-control").hidden = donations;
+    $("impulsa").hidden = !(donations && tab === "resum");
+    $("donors").hidden = !(donations && tab === "donants");
+    $("meta").hidden = donations;
+
+    let all = null;
+    if (donations) {
+      $("tab-donors").textContent = `Donants i socis (${int(records.length)})`;
+      for (const button of document.querySelectorAll("[data-tab]")) button.setAttribute("aria-selected", String(button.dataset.tab === tab));
+      all = renderDonors().all;
+      if (tab === "resum") renderImpulsa(all);
+    } else {
+      const days = (Date.parse(campaign.range.until) - Date.parse(campaign.range.since)) / 86400000 + 1;
+      const mode = grouping ?? (days <= 35 ? "day" : "week");
+      for (const button of document.querySelectorAll("[data-grouping]")) button.setAttribute("aria-pressed", String(button.dataset.grouping === mode));
+      renderMeta(campaign, mode);
+    }
+
+    const notes = donations ? [NOTES.roas, NOTES.roiPending] : [NOTES.cpl];
+    $("metric-notes").replaceChildren(...notes.map((note) =>
+      el("div", {}, [
+        el("dt", {}, [note.name ? `${note.short} · ${note.name}` : note.short, el("code", { textContent: ` ${note.formula}` })]),
+        el("dd", { textContent: note.text }),
+      ])));
+  }
+
+  // --- wiring
+  const select = $("campaign");
+  for (const kind of ["leads", "donatius"]) {
+    const items = DATA.campaigns.filter((c) => c.kind === kind);
+    if (!items.length) continue;
+    const group = el("optgroup", { label: KIND_LABEL[kind] });
+    for (const campaign of items) group.append(el("option", { value: campaign.key, textContent: campaign.name }));
+    select.append(group);
+  }
+  select.value = selected;
+  select.addEventListener("change", () => { selected = select.value; grouping = null; tab = "resum"; render(); });
+  for (const button of document.querySelectorAll("[data-grouping]")) button.addEventListener("click", () => { grouping = button.dataset.grouping; render(); });
+  for (const button of document.querySelectorAll("[data-tab]")) button.addEventListener("click", () => { tab = button.dataset.tab; render(); });
+  $("donor-search").addEventListener("input", (event) => { query = event.target.value; renderDonors(); });
+
+  $("reading-stamp").append(
+    el("span", { textContent: `${DATA.account.name} · ${DATA.account.currency}` }), el("br"),
+    el("span", { textContent: `Instantània del ${caDate(DATA.today)}` }),
+  );
+  $("foot-1").textContent = `Previsualització estàtica de la demo. Les xifres són les que servia l’aplicació el ${caDate(DATA.today)}: Meta Ads en directe des de la Graph API, amb un any de dades diàries (${caDate(DATA.window.since)} – ${caDate(DATA.window.until)}), i el fitxer de socis i donatius d’Impulsa Talent. A l’aplicació les correccions de la taula es desen i queden per a tothom; aquí es veuen a l’instant però no surten de la pàgina.`;
+  $("foot-2").textContent = `Font d’Impulsa Talent: ${impulsa.source.file} (${impulsa.source.detailRows} files, ${impulsa.source.includedRows} computables, resum a ${caDate(impulsa.cutOff)}). ${impulsa.source.note}`;
+
+  render();
+  let resizeTimer;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+})();
+</script>

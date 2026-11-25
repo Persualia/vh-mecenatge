@@ -1,0 +1,373 @@
+{
+  "generatedAt": "2026-11-25",
+  "source": {
+    "file": "VAL ImpulsaTalent Socis i Donatius - 2026.csv",
+    "sha256": "a7fea0828b6e6296",
+    "detailRows": 113,
+    "includedRows": 109,
+    "note": "Agregat sense noms, correus ni identificadors. La font no entra al repositori ni al navegador."
+  },
+  "cutOff": "2026-11-12",
+  "criterion": {
+    "Mensual": 12,
+    "Trimestral": 4,
+    "Anual": 1,
+    "Puntual": 1
+  },
+  "cards": {
+    "spendEur": 6601,
+    "metaSpendUsd": 4820.5,
+    "googleSpendEur": 2196.7,
+    "metaSpendEur": 4404.3,
+    "impliedUsdToEur": 0.9137,
+    "billedEur": 7868,
+    "yearValueEur": 18213,
+    "ratioBilled": 1.19,
+    "ratioYear": 2.76
+  },
+  "attribution": [
+    {
+      "key": "meta",
+      "label": "Meta",
+      "count": 103,
+      "billedEur": 7509,
+      "yearEur": 16495
+    },
+    {
+      "key": "newsletter",
+      "label": "Newsletter",
+      "count": 2,
+      "billedEur": 175,
+      "yearEur": 900
+    },
+    {
+      "key": "google",
+      "label": "Google Ads",
+      "count": 4,
+      "billedEur": 184,
+      "yearEur": 818
+    }
+  ],
+  "frequency": [
+    {
+      "key": "Mensual",
+      "multiplier": 12,
+      "recurring": true,
+      "count": 52,
+      "billedEur": 4152,
+      "yearEur": 13512
+    },
+    {
+      "key": "Trimestral",
+      "multiplier": 4,
+      "recurring": true,
+      "count": 12,
+      "billedEur": 795,
+      "yearEur": 1780
+    },
+    {
+      "key": "Anual",
+      "multiplier": 1,
+      "recurring": true,
+      "count": 11,
+      "billedEur": 750,
+      "yearEur": 750
+    },
+    {
+      "key": "Puntual",
+      "multiplier": 1,
+      "recurring": false,
+      "count": 34,
+      "billedEur": 2171,
+      "yearEur": 2171
+    }
+  ],
+  "origin": [
+    {
+      "key": "CRM",
+      "count": 61,
+      "billedEur": 4975,
+      "yearEur": 12690
+    },
+    {
+      "key": "Donaciones",
+      "count": 48,
+      "billedEur": 2893,
+      "yearEur": 5523
+    }
+  ],
+  "excluded": {
+    "count": 4,
+    "reasons": [
+      {
+        "state": "Exclòs",
+        "count": 3
+      },
+      {
+        "state": "Cancel·lada",
+        "count": 1
+      }
+    ],
+    "billedEur": 0,
+    "yearEur": 0
+  },
+  "unpaidQuotas": {
+    "rowsWithValue": 0,
+    "note": "La columna «Quotes impagades» és buida a tot el fitxer: no resta res dels totals."
+  },
+  "weekly": [
+    {
+      "weekStart": "2026-06-29",
+      "oneOffCount": 2,
+      "oneOffEur": 245,
+      "recurringCount": 4,
+      "recurringEur": 375,
+      "yearEur": 1145
+    },
+    {
+      "weekStart": "2026-07-06",
+      "oneOffCount": 7,
+      "oneOffEur": 315,
+      "recurringCount": 7,
+      "recurringEur": 550,
+      "yearEur": 1355
+    },
+    {
+      "weekStart": "2026-07-13",
+      "oneOffCount": 2,
+      "oneOffEur": 50,
+      "recurringCount": 8,
+      "recurringEur": 950,
+      "yearEur": 2290
+    },
+    {
+      "weekStart": "2026-07-20",
+      "oneOffCount": 2,
+      "oneOffEur": 100,
+      "recurringCount": 8,
+      "recurringEur": 850,
+      "yearEur": 1945
+    },
+    {
+      "weekStart": "2026-07-27",
+      "oneOffCount": 4,
+      "oneOffEur": 225,
+      "recurringCount": 10,
+      "recurringEur": 818,
+      "yearEur": 2429
+    },
+    {
+      "weekStart": "2026-08-03",
+      "oneOffCount": 4,
+      "oneOffEur": 115,
+      "recurringCount": 9,
+      "recurringEur": 800,
+      "yearEur": 1765
+    },
+    {
+      "weekStart": "2026-08-10",
+      "oneOffCount": 1,
+      "oneOffEur": 25,
+      "recurringCount": 4,
+      "recurringEur": 340,
+      "yearEur": 945
+    },
+    {
+      "weekStart": "2026-08-17",
+      "oneOffCount": 1,
+      "oneOffEur": 50,
+      "recurringCount": 0,
+      "recurringEur": 0,
+      "yearEur": 50
+    },
+    {
+      "weekStart": "2026-08-24",
+      "oneOffCount": 0,
+      "oneOffEur": 0,
+      "recurringCount": 0,
+      "recurringEur": 0,
+      "yearEur": 0
+    },
+    {
+      "weekStart": "2026-08-31",
+      "oneOffCount": 0,
+      "oneOffEur": 0,
+      "recurringCount": 0,
+      "recurringEur": 0,
+      "yearEur": 0
+    },
+    {
+      "weekStart": "2026-09-07",
+      "oneOffCount": 0,
+      "oneOffEur": 0,
+      "recurringCount": 0,
+      "recurringEur": 0,
+      "yearEur": 0
+    },
+    {
+      "weekStart": "2026-09-14",
+      "oneOffCount": 3,
+      "oneOffEur": 170,
+      "recurringCount": 3,
+      "recurringEur": 125,
+      "yearEur": 595
+    },
+    {
+      "weekStart": "2026-09-21",
+      "oneOffCount": 2,
+      "oneOffEur": 75,
+      "recurringCount": 9,
+      "recurringEur": 413,
+      "yearEur": 1927
+    },
+    {
+      "weekStart": "2026-09-28",
+      "oneOffCount": 0,
+      "oneOffEur": 0,
+      "recurringCount": 4,
+      "recurringEur": 96,
+      "yearEur": 536
+    },
+    {
+      "weekStart": "2026-10-05",
+      "oneOffCount": 0,
+      "oneOffEur": 0,
+      "recurringCount": 6,
+      "recurringEur": 305,
+      "yearEur": 1530
+    },
+    {
+      "weekStart": "2026-10-12",
+      "oneOffCount": 2,
+      "oneOffEur": 100,
+      "recurringCount": 0,
+      "recurringEur": 0,
+      "yearEur": 100
+    },
+    {
+      "weekStart": "2026-10-19",
+      "oneOffCount": 1,
+      "oneOffEur": 50,
+      "recurringCount": 0,
+      "recurringEur": 0,
+      "yearEur": 50
+    },
+    {
+      "weekStart": "2026-10-26",
+      "oneOffCount": 0,
+      "oneOffEur": 0,
+      "recurringCount": 1,
+      "recurringEur": 50,
+      "yearEur": 600
+    },
+    {
+      "weekStart": "2026-11-02",
+      "oneOffCount": 1,
+      "oneOffEur": 1,
+      "recurringCount": 2,
+      "recurringEur": 25,
+      "yearEur": 301
+    },
+    {
+      "weekStart": "2026-11-09",
+      "oneOffCount": 2,
+      "oneOffEur": 650,
+      "recurringCount": 0,
+      "recurringEur": 0,
+      "yearEur": 650
+    }
+  ],
+  "registrations": {
+    "first": "2026-07-02",
+    "last": "2026-11-11",
+    "count": 109
+  },
+  "checks": [
+    {
+      "id": "billed",
+      "label": "Facturació acumulada",
+      "computed": 7868,
+      "declared": 7868,
+      "ok": true
+    },
+    {
+      "id": "year",
+      "label": "Valor estimat el primer any",
+      "computed": 18213,
+      "declared": 18213,
+      "ok": true
+    },
+    {
+      "id": "criterion",
+      "label": "Import base × criteri = columna del primer any",
+      "computed": 18213,
+      "declared": 18213,
+      "ok": true
+    },
+    {
+      "id": "roas-year",
+      "label": "Ràtio sobre la projecció a un any",
+      "computed": 2.76,
+      "declared": 2.76,
+      "ok": true
+    },
+    {
+      "id": "roas-billed",
+      "label": "Ràtio sobre la facturació acumulada",
+      "computed": 1.19,
+      "declared": 1.19,
+      "ok": true
+    },
+    {
+      "id": "roas-google-year",
+      "label": "ROAS de Google a un any",
+      "computed": 0.372377,
+      "declared": 0.372377,
+      "ok": true
+    },
+    {
+      "id": "roas-google-billed",
+      "label": "ROAS de Google acumulat",
+      "computed": 0.083762,
+      "declared": 0.083762,
+      "ok": true
+    },
+    {
+      "id": "roas-meta-year",
+      "label": "ROAS de Meta a un any",
+      "computed": 3.745204,
+      "declared": 3.745204,
+      "ok": true
+    },
+    {
+      "id": "roas-meta-billed",
+      "label": "ROAS de Meta acumulat",
+      "computed": 1.704925,
+      "declared": 1.704925,
+      "ok": true
+    }
+  ],
+  "metaChannelRoasBasis": {
+    "spendEur": 4404.3,
+    "yearEur": 16495,
+    "billedEur": 7509,
+    "roasYear": 3.75,
+    "roasBilled": 1.7,
+    "reproducesYear": true,
+    "reproducesBilled": true
+  },
+  "declared": {
+    "yearValueEur": 18213,
+    "billedEur": 7868,
+    "metaSpendUsd": 4820.5,
+    "googleSpendEur": 2196.7,
+    "combinedSpendEur": 6601,
+    "roasYear": 2.76,
+    "roasBilled": 1.19,
+    "roasYearGoogle": 0.3723767469,
+    "roasBilledGoogle": 0.08376200665,
+    "roasYearMeta": 3.745203551,
+    "roasBilledMeta": 1.704924733,
+    "cutOff": "2026-11-12"
+  }
+}
