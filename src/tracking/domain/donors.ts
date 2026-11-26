@@ -114,6 +114,12 @@ export interface DonorRow extends DonorRecord {
   counts: boolean;
   /** The year it was registered, which carries the first-year figure. */
   firstYear: number;
+  /**
+   * Twelve months from registration by the Unitat de Mecenatge's criterion (monthly ×12,
+   * quarterly ×4…), with the first year's quota and unpaid instalments. Unlike the calendar
+   * cell of that year, it does not depend on the month the record was registered in.
+   */
+  firstYearValue: number;
   years: YearCell[];
   /** Billed to date, less the instalments marked unpaid up to this year. */
   billedEffective: number;
@@ -121,10 +127,20 @@ export interface DonorRow extends DonorRecord {
   edited: boolean;
 }
 
-/** Instalments a record owes in a given year: the ones on file for its first year, and for a
- *  later year only if it recurs. A one-off does not come back. */
-const defaultInstalments = (record: DonorRecord, year: number) =>
-  year === yearOf(record.date) || record.recurring ? record.instalments : 0;
+/**
+ * Instalments a record owes in a calendar year. In the year it was registered, only the ones
+ * left from that month on: a monthly gift from July pays July to December, six; a quarterly one
+ * from November pays once. Every later year a recurring gift pays all of them; a one-off does
+ * not come back, and nothing is owed before the record existed.
+ */
+export function defaultInstalments(record: DonorRecord, year: number): number {
+  const firstYear = yearOf(record.date);
+  if (year < firstYear) return 0;
+  if (year > firstYear) return record.recurring ? record.instalments : 0;
+  if (!record.recurring || record.instalments <= 0) return record.instalments;
+  const monthsLeft = 13 - Number(record.date.slice(5, 7));
+  return Math.ceil(monthsLeft / (12 / record.instalments));
+}
 
 export function resolveRow(record: DonorRecord, override: DonorOverride | undefined, years: number[], today: string): DonorRow {
   const state = override?.state ?? record.state;
@@ -150,6 +166,9 @@ export function resolveRow(record: DonorRecord, override: DonorOverride | undefi
 
   // Money already invoiced, less what has been marked unpaid in a year that has happened —
   // unless the figure is already the platform's own record of what it charged.
+  const first = cells.find((c) => c.year === firstYear);
+  const firstYearValue = counts && first ? round(first.quota * Math.max(0, record.instalments - first.unpaid)) : 0;
+
   const unpaidSoFar = record.billedIsActual ? 0 : cells.filter((c) => c.year <= thisYear).reduce((total, c) => total + c.unpaid * c.quota, 0);
 
   return {
@@ -159,6 +178,7 @@ export function resolveRow(record: DonorRecord, override: DonorOverride | undefi
     state,
     counts,
     firstYear,
+    firstYearValue,
     years: cells,
     billedEffective: counts ? round(Math.max(0, record.billedEur - unpaidSoFar)) : 0,
     edited: override !== undefined && (override.channel !== undefined || override.state !== undefined || cells.some((c) => c.edited)),
@@ -167,21 +187,26 @@ export function resolveRow(record: DonorRecord, override: DonorOverride | undefi
 
 const round = (v: number) => Math.round(v * 100) / 100;
 
+/** Rows in the order of the first gift, most recent first. */
 export function resolveRows(records: DonorRecord[], overrides: DonorOverrides, years: number[], today: string): DonorRow[] {
-  return records.map((record) => resolveRow(record, overrides[record.ref], years, today));
+  return records
+    .map((record) => resolveRow(record, overrides[record.ref], years, today))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.ref.localeCompare(a.ref, undefined, { numeric: true }));
 }
 
 export interface DonorTotals {
   records: number;
   counted: number;
   billedEur: number;
-  /** Value of each record's own first year: what the export calls the first-year projection. */
+  /** Each record's first twelve months by the criterion: what the export calls the first-year projection. */
   firstYearEur: number;
   /**
-   * Everything the records have generated: for each one, every year from the one it was
-   * registered in through the year in course. A member who signed up in 2026 and is still
-   * paying in 2028 counts 2026, 2027 and 2028; one who signs up in 2028 counts its first
-   * year. While every record was registered this year, this equals `firstYearEur`.
+   * Everything the records have generated: for a record from an earlier year, every calendar
+   * year from the one it was registered in through the year in course; for one registered this
+   * year, its first twelve months by the criterion. A member who signed up in July 2026 and is
+   * still paying in 2028 counts July–December 2026, 2027 and 2028; one who signs up in 2028
+   * counts a full first year. While every record was registered this year, this equals
+   * `firstYearEur`.
    */
   generatedEur: number;
   /** The years `generatedEur` spans, so the figure can say what it covers. */
@@ -215,10 +240,12 @@ export function donorTotals(rows: DonorRow[], years: number[], today: string): D
     if (!row.counts) continue;
     counted++;
     billedEur = round(billedEur + row.billedEffective);
-    const own = row.years.find((c) => c.year === row.firstYear)?.value ?? 0;
+    const own = row.firstYearValue;
     firstYearEur = round(firstYearEur + own);
-    // Every year this record has run, up to and including the one in course.
-    generatedEur = round(generatedEur + row.years.filter((c) => c.year >= row.firstYear && c.year <= thisYear).reduce((total, c) => total + c.value, 0));
+    // A record of this year: its first year by the criterion. An older one: every calendar
+    // year it has run, up to and including the one in course.
+    const generated = row.firstYear >= thisYear ? own : row.years.filter((c) => c.year >= row.firstYear && c.year <= thisYear).reduce((total, c) => total + c.value, 0);
+    generatedEur = round(generatedEur + generated);
     generatedFrom = Math.min(generatedFrom, row.firstYear);
     const bucket = channels.get(row.channel) ?? { count: 0, billedEur: 0, firstYearEur: 0 };
     bucket.count++;

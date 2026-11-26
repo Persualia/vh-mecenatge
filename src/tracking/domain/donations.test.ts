@@ -61,7 +61,8 @@ describe("records from the donations platform", () => {
     const [record] = donorRecordsFromDonations([donation({ id: "1" }), donation({ id: "2", date: "2026-08-02" })], TODAY);
     const row = resolveRow(record, { years: { "2026": { unpaid: 1 } } }, [2026, 2027], TODAY);
     expect(row.billedEffective).toBe(50);
-    expect(row.years[0].value).toBe(275);
+    // A monthly gift from July owes six instalments in 2026; one of them went unpaid.
+    expect(row.years[0].value).toBe(125);
   });
 });
 
