@@ -63,7 +63,9 @@ export function ImpulsaView({ aggregate, totals }: { aggregate: ImpulsaAggregate
         <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
           <CalendarClockIcon className="mt-0.5 size-3.5 flex-none" aria-hidden="true" />
           <span>
-            Les xifres acumulades són una instantània amb data de tall {isoToCa(aggregate.cutOff)}: el fitxer no porta la despesa diària ni la data de cobrament de cada quota, de manera que el gràfic va per data de registre i les targetes es mantenen a la data de tall.
+            {aggregate.source.kind === "live"
+              ? `Dades de StockCrowd a ${isoToCa(aggregate.cutOff)}. Els socis amb targeta compten el que StockCrowd ha cobrat realment; els de domiciliació (CRM) compten les quotes vençudes, perquè les cobra el CRM i StockCrowd no les veu: anoteu-hi les impagades a la taula. ${aggregate.spendSources?.google === "live" ? "La inversió de Meta i la de Google Ads són en directe." : "La inversió de Meta és en directe; la de Google és una xifra fixa de la configuració."}`
+              : `Les xifres acumulades són una instantània amb data de tall ${isoToCa(aggregate.cutOff)}: el fitxer no porta la despesa diària ni la data de cobrament de cada quota, de manera que el gràfic va per data de registre i les targetes es mantenen a la data de tall.`}
           </span>
         </p>
       </section>

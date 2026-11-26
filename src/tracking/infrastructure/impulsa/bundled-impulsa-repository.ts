@@ -19,4 +19,9 @@ export class BundledImpulsaRepository implements ImpulsaRepository {
   async loadRecords(): Promise<DonorRecordsFile> {
     return records as DonorRecordsFile;
   }
+
+  /** The export was stripped of e-mails, so there is nothing to search by. */
+  async findRefsByEmail(): Promise<null> {
+    return null;
+  }
 }

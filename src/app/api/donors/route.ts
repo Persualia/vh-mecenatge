@@ -9,7 +9,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json().catch(() => null);
     if (typeof body !== "object" || body === null) return errorResponse(new Error("Cos de la petició buit."));
     const { ref, override } = body as { ref?: unknown; override?: unknown };
-    return Response.json({ overrides: await container().saveDonorOverride.execute(ref, override ?? {}) });
+    return Response.json({ overrides: await container().saveDonorOverride.execute(ref, override ?? {}, new Date().toISOString().slice(0, 10)) });
   } catch (error) {
     return errorResponse(error);
   }

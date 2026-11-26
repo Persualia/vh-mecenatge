@@ -16,7 +16,7 @@ import { DonorsTable } from "./donors-table";
 import { ImpulsaView } from "./impulsa-view";
 import { LeadsView } from "./leads-view";
 
-const SOURCE_LABEL = { meta: "Meta Ads", impulsa: "Fitxer de socis i donatius" } as const;
+const SOURCE_LABEL = { meta: "Meta Ads", impulsa: "Socis i donatius" } as const;
 type Tab = "resum" | "donants";
 
 export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; onRefresh: () => void; refreshing: boolean }) {
@@ -51,6 +51,17 @@ export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; 
     } finally {
       setSaving(null);
     }
+  }, []);
+
+  const searchByEmail = useCallback(async (email: string) => {
+    const response = await fetch("/api/donors/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error ?? "No s’ha pogut cercar el correu.");
+    return body.refs as string[];
   }, []);
 
   const campaign = campaigns.find((c) => c.key === selected) ?? campaigns[0];
@@ -92,7 +103,7 @@ export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; 
 
   const lastUpdate = isDonations
     ? board.impulsa
-      ? `Fitxer de socis i donatius a ${isoToCa(board.impulsa.cutOff)}`
+      ? `${board.impulsa.source.kind === "live" ? "StockCrowd" : "Fitxer de socis i donatius"} a ${isoToCa(board.impulsa.cutOff)}`
       : ""
     : campaign.lastDay
       ? `Meta Ads a ${isoToCa(campaign.lastDay)}`
@@ -138,7 +149,7 @@ export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; 
 
       {board.failures.map((failure) => (
         <Alert key={failure.source} variant="destructive">
-          <AlertTitle>No s’ha pogut llegir {failure.source === "meta" ? "Meta Ads" : "el fitxer d’Impulsa Talent"}</AlertTitle>
+          <AlertTitle>No s’ha pogut llegir {failure.source === "meta" ? "Meta Ads" : "les dades d’Impulsa Talent"}</AlertTitle>
           <AlertDescription>{failure.message}</AlertDescription>
         </Alert>
       ))}
@@ -156,7 +167,7 @@ export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; 
           {tab === "resum" ? (
             <ImpulsaView aggregate={board.impulsa} totals={totals} />
           ) : (
-            <DonorsTable records={donors.records} overrides={effectiveOverrides} today={board.today} onSave={saveOverride} saving={saving} error={saveError} />
+            <DonorsTable records={donors.records} overrides={effectiveOverrides} today={board.today} onSave={saveOverride} saving={saving} error={saveError} searchByEmail={searchByEmail} />
           )}
         </>
       )}
@@ -172,13 +183,13 @@ export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; 
 
       <footer className="flex flex-col gap-1 border-t pt-4 text-xs text-muted-foreground">
         <p>
-          Demo de seguiment amb dades reals: Meta Ads en directe des de la Graph API i l’agregat del fitxer d’Impulsa Talent. Es carrega un any de dades diàries ({isoToCa(board.window.since)} – {isoToCa(board.window.until)}) i els
+          Demo de seguiment amb dades reals: Meta Ads en directe des de la Graph API i Impulsa Talent {board.impulsa?.source.kind === "live" ? "en directe des de StockCrowd" : "des de l’agregat del fitxer"}. Es carrega un any de dades diàries ({isoToCa(board.window.since)} – {isoToCa(board.window.until)}) i els
           càlculs es fan al navegador, de manera que canviar de campanya, de període o d’agrupació és immediat.
         </p>
         {outOfScope > 0 && <p>El compte de Meta té {int(outOfScope)} campanyes més que ara no entren en l’abast de la demo.</p>}
         {board.impulsa && donors && (
           <p>
-            Font d’Impulsa Talent: {board.impulsa.source.file} ({board.impulsa.source.detailRows} files, {board.impulsa.source.includedRows} computables, resum a {isoToCa(board.impulsa.cutOff)}). {board.impulsa.source.note}
+            Font d’Impulsa Talent: {board.impulsa.source.file} ({board.impulsa.source.detailRows} registres, {board.impulsa.source.includedRows} computables, a {isoToCa(board.impulsa.cutOff)}). {board.impulsa.source.note}
           </p>
         )}
       </footer>

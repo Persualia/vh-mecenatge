@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { LockIcon, SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { eur, int, isoToCa } from "@/tracking/domain/format";
 import {
   CHANNEL_OPTIONS,
+  EXCLUDED_STATE,
   STATE_OPTIONS,
   donorTotals,
   resolveRows,
@@ -25,7 +26,14 @@ export interface DonorsTableProps {
   onSave: (ref: string, override: DonorOverride) => Promise<void>;
   saving: string | null;
   error: string | null;
+  /** The refs of the records made with an e-mail, looked up on the server by its hash. */
+  searchByEmail: (email: string) => Promise<string[]>;
 }
+
+/** Typed text that reads as an address is searched by e-mail; anything else, in the table. */
+const looksLikeEmail = (text: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim());
+
+type EmailSearch = { email: string; refs: string[] | null; error: string | null };
 
 /** The corrections a row carries, derived from what it now shows against what is on file. */
 function overrideFor(row: DonorRow, record: DonorRecord): DonorOverride {
@@ -70,12 +78,35 @@ function Choice({ value, options, onChange, label }: { value: string; options: {
   );
 }
 
-export function DonorsTable({ records, overrides, today, onSave, saving, error }: DonorsTableProps) {
+export function DonorsTable({ records, overrides, today, onSave, saving, error, searchByEmail }: DonorsTableProps) {
   const [query, setQuery] = useState("");
+  const [emailSearch, setEmailSearch] = useState<EmailSearch | null>(null);
+
+  const email = looksLikeEmail(query) ? query.trim() : null;
+  useEffect(() => {
+    if (!email) return;
+    // Wait for the typing to stop, and drop an answer that arrives after the text changed.
+    let current = true;
+    const timer = setTimeout(() => {
+      searchByEmail(email).then(
+        (refs) => current && setEmailSearch({ email, refs, error: null }),
+        (failure: unknown) => current && setEmailSearch({ email, refs: null, error: failure instanceof Error ? failure.message : "No s’ha pogut cercar." }),
+      );
+    }, 400);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [email, searchByEmail]);
+  const found = email && emailSearch?.email === email ? emailSearch : null;
 
   const years = useMemo(() => yearColumns(records, overrides, today), [records, overrides, today]);
   const rows = useMemo(() => resolveRows(records, overrides, years, today), [records, overrides, years, today]);
-  const visible = useMemo(() => searchRows(rows, query), [rows, query]);
+  const visible = useMemo(() => {
+    if (!email) return searchRows(rows, query);
+    const refs = new Set(found?.refs ?? []);
+    return rows.filter((row) => refs.has(row.ref));
+  }, [rows, query, email, found]);
   const totals = useMemo(() => donorTotals(rows, years, today), [rows, years, today]);
   const shownTotals = useMemo(() => donorTotals(visible, years, today), [visible, years, today]);
   const byRef = useMemo(() => new Map(records.map((r) => [r.ref, r])), [records]);
@@ -103,24 +134,25 @@ export function DonorsTable({ records, overrides, today, onSave, saving, error }
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Cerca per referència, data, import, origen…"
+            placeholder="Cerca per referència, data, import, origen o correu…"
             aria-label="Cerca un donant o soci"
             className="h-9 w-full rounded-lg border border-input bg-card pr-3 pl-8 text-sm focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
           />
         </label>
         <p className="text-xs text-muted-foreground tabular-nums">
-          {query ? `${int(visible.length)} de ${int(rows.length)} registres` : `${int(rows.length)} registres`} · {int(totals.counted)} computables · {int(totals.edited)} amb correccions a mà
+          {email && !found ? "Cercant el correu…" : query ? `${int(visible.length)} de ${int(rows.length)} registres` : `${int(rows.length)} registres`} · {int(totals.counted)} computables · {int(totals.edited)} amb correccions a mà
         </p>
       </div>
 
       <p className="flex items-start gap-2 rounded-lg bg-muted/60 p-3 text-xs leading-relaxed text-ink-secondary">
         <LockIcon className="mt-0.5 size-3.5 flex-none text-muted-foreground" aria-hidden="true" />
         <span>
-          En aquesta demo el nom i el correu de cada donant no es carreguen: la taula funciona amb una referència. A la instància del VHIR aquestes dues columnes porten les dades reals i la cerca també hi busca. Tota la resta —origen, estat, quota i impagats— és la de debò i es pot editar aquí.
+          El nom i el correu de cada donant no arriben mai al navegador: la taula funciona amb una referència. Si escriviu un correu sencer a la cerca, el servidor el compara pel seu hash (SHA-256) amb els de StockCrowd i només en torna les referències. Tota la resta —origen, estat, quota i impagats— és la de debò i es pot editar aquí.
         </span>
       </p>
 
       {error && <p className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{error}</p>}
+      {found?.error && <p className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{found.error}</p>}
 
       <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
         <table className="w-full border-collapse text-sm">
@@ -172,7 +204,11 @@ export function DonorsTable({ records, overrides, today, onSave, saving, error }
                 <td className="px-2.5 py-1.5 text-right tabular-nums">{eur(row.base, 0)}</td>
                 <td className="px-2.5 py-1.5 text-xs whitespace-nowrap">{row.frequency}</td>
                 <td className="px-2.5 py-1.5">
-                  <Choice value={row.state} options={STATE_OPTIONS.map((o) => ({ value: o, label: o }))} onChange={(state) => change(row, { state })} label={`Estat de ${row.ref}`} />
+                  {row.state === EXCLUDED_STATE ? (
+                    <span className="text-xs" title="Retornat a la plataforma">{row.state}</span>
+                  ) : (
+                    <Choice value={row.state} options={STATE_OPTIONS.map((o) => ({ value: o, label: o }))} onChange={(state) => change(row, { state })} label={`Estat de ${row.ref}`} />
+                  )}
                 </td>
                 <td className="px-2.5 py-1.5 text-right tabular-nums">{eur(row.billedEffective, 0)}</td>
                 {row.years.map((cell) => (

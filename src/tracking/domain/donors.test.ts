@@ -118,9 +118,9 @@ describe("the search", () => {
 
 describe("what may be written", () => {
   it("accepts the fields the Unitat de Mecenatge may set", () => {
-    expect(sanitiseOverride({ channel: "google", state: "Exclòs", years: { "2027": { quota: 30, unpaid: 2 } } })).toEqual({
+    expect(sanitiseOverride({ channel: "google", state: "Cancel·lada", years: { "2027": { quota: 30, unpaid: 2 } } })).toEqual({
       channel: "google",
-      state: "Exclòs",
+      state: "Cancel·lada",
       years: { "2027": { quota: 30, unpaid: 2 } },
     });
   });
@@ -128,6 +128,7 @@ describe("what may be written", () => {
   it("refuses a channel, a state or a year it does not know", () => {
     expect(sanitiseOverride({ channel: "tiktok" })).toBeNull();
     expect(sanitiseOverride({ state: "Potser" })).toBeNull();
+    expect(sanitiseOverride({ state: "Exclòs" })).toBeNull();
     expect(sanitiseOverride({ years: { "26": { unpaid: 1 } } })).toBeNull();
   });
 

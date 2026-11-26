@@ -21,8 +21,10 @@ Cal Node 20+ i [pnpm](https://pnpm.io).
 ```bash
 pnpm install
 pnpm data:impulsa "<ruta>/VAL ImpulsaTalent Socis i Donatius - 2026.csv"   # genera l'agregat i els registres
-pnpm dev --port 3500                                                        # http://localhost:3500
+make start                                                                  # tanca el port 3500 si és ocupat, arrenca i obre http://localhost:3500
 ```
+
+`make stop` tanca el servidor. Es pot canviar el port amb `make start PORT=3600`.
 
 No hi ha cap `index.html` estàtic: el token de Meta només pot viure al servidor, així que
 l’app s’obre per URL.
@@ -35,6 +37,17 @@ l’app s’obre per URL.
 | `VHIR_AD_ACCOUNT_ID` | Compte publicitari. Per defecte, `122669428442042` (Vall d’Hebron). |
 | `VHIR_CREDENTIALS_DIR` | Carpeta del `.env` compartit. Per defecte, `../../mcp-ads-persualia`. |
 | `VHIR_OVERRIDES_FILE` | On es desen les correccions manuals. Per defecte, `data/impulsa-overrides.json`. |
+| `STOCKCROWD_API_KEY` | Clau de l’organització a StockCrowd. Si hi és, Impulsa Talent es llegeix en directe; si no, de l’agregat del fitxer. |
+| `STOCKCROWD_URL` | API de StockCrowd. Per defecte, `https://api.stockcrowd.com`. |
+| `DONOR_EMAIL_HASH_KEY` | Clau secreta amb què es fa el hash (HMAC-SHA256) dels correus. Obligatòria amb StockCrowd, mínim 32 caràcters (`openssl rand -hex 32`). Ha de ser la mateixa a totes les instàncies i no s’ha de canviar: si canvia, els hashes ja no coincideixen. |
+| `STOCKCROWD_CAMPAIGN_ID` | Campanya de StockCrowd d’Impulsa Talent. Per defecte, `27041` («Amb tu investiguem»). |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Client OAuth i refresh token amb accés a Google Ads. El client ha d’estar publicat («In production»): en mode «Testing» Google revoca el token als 7 dies. |
+| `GOOGLE_DEVELOPER_TOKEN` | Developer token de Google Ads (nivell Basic o superior). |
+| `GOOGLE_ADS_ID` | Compte de Google Ads del VHIR: `360-759-6474`. Amb les cinc variables de Google, la inversió de Google d’Impulsa Talent es llegeix en directe. |
+| `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | Només si s’hi accedeix a través d’un MCC. Ara no cal. |
+| `GOOGLE_ADS_API_VERSION` | Versió de l’API. Per defecte, `v26`. Google en retira cada versió al cap d’un any, aproximadament. |
+| `IMPULSA_GOOGLE_SPEND_EUR` | Inversió de Google Ads fixa, només si falten les credencials de Google. Per defecte, la del full: `2196.7`. |
+| `USD_TO_EUR` | Canvi per passar la inversió de Meta (en $) a euros. Per defecte, el del full: `0.9137`. |
 
 Les credencials **no es copien en aquest repositori**: `next.config.ts` les busca, per ordre,
 a l’entorn del procés, al `.env` de l’arrel d’aquest repositori i al `.env` del repositori de
@@ -104,8 +117,8 @@ toqui es vegi immediatament al quadre.
 | --- | --- |
 | Referència, Data, Import base, Freqüència | Vénen del fitxer i no es toquen. |
 | Donant, Correu | **Ocults en aquesta demo.** A la instància del VHIR porten les dades reals i la cerca també hi busca. |
-| **Origen** | Editable: Meta, Google Ads, Newsletter o Altres. Una cel·la buida al fitxer **és Meta**. |
-| **Estat** | Editable: Inclòs, Exclòs o Cancel·lada. Només «Inclòs» compta a les xifres. |
+| **Origen** | Editable: Meta, Google Ads, Newsletter o Altres. StockCrowd no sap d’on ve cada donant, així que tot entra com a **Meta** i les excepcions es corregeixen aquí. |
+| **Estat** | Editable: Inclòs o Cancel·lada (baixa d’una subscripció). «Exclòs» el posa la plataforma quan el donatiu s’ha retornat i no es pot canviar. Només «Inclòs» compta a les xifres. |
 | Facturat | El del fitxer, menys les quotes marcades com a impagades d’un any que ja ha passat. |
 | **Quota (per any)** | Editable: l’import d’una quota aquell any. Serveix per al cas «enguany aquesta quantitat i a partir de l’any vinent una altra». |
 | **Impagats (per any)** | Editable: quantes quotes no s’han cobrat aquell any. Mai més de les que toquen. |
@@ -181,6 +194,33 @@ Sobre les exclusions: de les 113 files de detall, 109 computen. Les 4 restants (
 columna «Quotes impagades» és buida a tot el fitxer, de manera que no resta res dels totals;
 a partir d’ara els impagats s’anoten a la taula, any per any.
 
+## Impulsa Talent en directe des de StockCrowd
+
+Amb `STOCKCROWD_API_KEY` configurada, les dades d’Impulsa Talent es llegeixen a cada càrrega
+(amb 5 minuts de memòria cau) de la campanya 27041 de StockCrowd, i la inversió, de les campanyes
+`VAL ImpulsaTalent` a la Graph API de Meta i de les `PER ImpulsaTalent` a l’API de Google Ads. L’API està documentada a
+`https://api.stockcrowd.com/donors/swagger-ui/index.html`; la clau va a la capçalera `x-api-key`.
+
+- **Socis amb targeta** (`Donaciones`): StockCrowd crea una transacció per cada quota cobrada.
+  Es plegen en un sol registre, i la facturació és **el que s’ha cobrat realment**.
+- **Socis per domiciliació** (`CRM`): StockCrowd només en captura les dades bancàries i les quotes
+  les cobra el CRM. La facturació són **les quotes vençudes** (la mateixa regla que feia servir el
+  full) i els impagats s’anoten a mà a la taula.
+- Cada registre es referencia amb l’identificador de StockCrowd (`SC-<id>`), que és estable: les
+  correccions manuals no canvien de registre quan n’entren de nous.
+- La capa manual només cobreix el que cap API no sap: l’origen del donant, les baixes de
+  subscripció i, per any, un canvi de quota o les quotes impagades. El full antic ja no s’hi
+  aplica; se’n van portar com a correccions la baixa de R-005 (`SC-4740735`) i els sis
+  canals que no eren Meta.
+- Cap nom, correu ni identificador personal surt de l’adaptador: el correu només serveix per
+  agrupar les quotes d’un mateix soci i es resumeix (hash) abans d’entrar al domini.
+- **Cerca per correu**: si a la cerca de la taula s’hi escriu un correu sencer, el navegador
+  l’envia per POST a `/api/donors/search`. El servidor el passa a minúscules i sense espais, en fa
+  l’HMAC-SHA256 amb la clau `DONOR_EMAIL_HASH_KEY`, igual que els de StockCrowd, i en torna només les referències. Ni els
+  correus ni els hashes arriben al navegador.
+
+Sense la clau, l’app torna a l’agregat del fitxer (`pnpm data:impulsa`), com abans.
+
 ## Arquitectura
 
 ```
@@ -195,6 +235,8 @@ src/
 │   └── infrastructure/    # Adaptadors de sortida
 │       ├── meta/          # Graph API i mapatge de les seves respostes
 │       ├── impulsa/       # Lectura dels fitxers i escriptura de les correccions
+│       ├── stockcrowd/    # API de StockCrowd i mapatge de les transaccions
+│       ├── google-ads/    # OAuth i inversió per campanya de l’API de Google Ads
 │       ├── cache/         # Decorador en memòria del port d'insights (30 min)
 │       └── container.ts   # Composició
 ├── app/                   # Adaptador d'entrada: pàgina, /api/board i /api/donors

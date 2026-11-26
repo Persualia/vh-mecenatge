@@ -52,8 +52,8 @@ export class LoadTrackingBoard {
     const [account, meta, impulsa, donors, overrides] = await Promise.allSettled([
       this.accounts.listAll().then((list) => list.find((a) => a.id === this.accountId) ?? null),
       this.insights.fetchDaily(this.accountId, window, options),
-      this.impulsa.load(),
-      this.impulsa.loadRecords(),
+      this.impulsa.load(today),
+      this.impulsa.loadRecords(today),
       this.overrides.load(),
     ]);
 

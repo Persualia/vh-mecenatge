@@ -22,6 +22,12 @@ export interface DonorRecord {
   state: string;
   included: boolean;
   billedEur: number;
+  /**
+   * True when `billedEur` is what the platform actually charged, instalment by instalment: an
+   * unpaid instalment is then already missing from it and must not be taken off again. False
+   * or absent when it is the amount due by the calendar, as for the CRM's direct debits.
+   */
+  billedIsActual?: boolean;
   firstYearEur: number;
 }
 
@@ -40,8 +46,13 @@ export interface YearEdit {
   unpaid?: number;
 }
 
+/**
+ * The hand layer over what the platforms report: where the donor came from (StockCrowd does
+ * not know), a cancelled subscription, and per year a changed instalment or unpaid ones.
+ */
 export interface DonorOverride {
   channel?: string;
+  /** Only `CANCELLED_STATE`, or `INCLUDED_STATE` to undo it. A refund is the platform's call. */
   state?: string;
   years?: Record<string, YearEdit>;
 }
@@ -55,10 +66,14 @@ export const CHANNEL_OPTIONS = [
   { key: "altres", label: "Altres" },
 ] as const;
 
-export const STATE_OPTIONS = ["Inclòs", "Exclòs", "Cancel·lada"] as const;
-
 /** A row counts towards the figures only in this state. */
 export const INCLUDED_STATE = "Inclòs";
+/** Set by the platform when every movement was refunded; never by hand. */
+export const EXCLUDED_STATE = "Exclòs";
+export const CANCELLED_STATE = "Cancel·lada";
+
+/** The states the table lets someone choose. */
+export const STATE_OPTIONS = [INCLUDED_STATE, CANCELLED_STATE] as const;
 
 export const channelLabel = (key: string) => CHANNEL_OPTIONS.find((c) => c.key === key)?.label ?? key;
 
@@ -133,8 +148,9 @@ export function resolveRow(record: DonorRecord, override: DonorOverride | undefi
     };
   });
 
-  // Money already invoiced, less what has been marked unpaid in a year that has happened.
-  const unpaidSoFar = cells.filter((c) => c.year <= thisYear).reduce((total, c) => total + c.unpaid * c.quota, 0);
+  // Money already invoiced, less what has been marked unpaid in a year that has happened —
+  // unless the figure is already the platform's own record of what it charged.
+  const unpaidSoFar = record.billedIsActual ? 0 : cells.filter((c) => c.year <= thisYear).reduce((total, c) => total + c.unpaid * c.quota, 0);
 
   return {
     ...record,
