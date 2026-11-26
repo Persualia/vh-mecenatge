@@ -21,6 +21,9 @@ for (const dir of [resolve(process.cwd(), ".."), sharedCredentials]) {
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    agentUpgrade: "security",
+  },
   turbopack: {
     rules: {
       "*.css": {
