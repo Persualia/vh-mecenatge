@@ -45,4 +45,4 @@ next-env.d.ts
 *ImpulsaTalent*.csv
 
 # Correccions manuals del personal del VHIR: estat de la instància, no codi.
-/data/
+# /data/
