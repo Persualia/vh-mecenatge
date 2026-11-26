@@ -14,4 +14,4 @@ resources:
 
 images:
   - name: ghcr.io/persualia/vh-mecenatge
-    newTag: main # el workflow el substitueix pel SHA de cada build
+    newTag: d89e9b6375b14e86dc4efcc0bfe278c4dd9518ee
