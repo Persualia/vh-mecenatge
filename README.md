@@ -37,6 +37,7 @@ l’app s’obre per URL.
 | `VHIR_AD_ACCOUNT_ID` | Compte publicitari. Per defecte, `122669428442042` (Vall d’Hebron). |
 | `VHIR_CREDENTIALS_DIR` | Carpeta del `.env` compartit. Per defecte, `../../mcp-ads-persualia`. |
 | `VHIR_OVERRIDES_FILE` | On es desen les correccions manuals. Per defecte, `data/impulsa-overrides.json`. |
+| `AWS_S3_BUCKET`, `AWS_S3_PATH` | Si hi ha bucket, les correccions es desen a S3 (`<AWS_S3_PATH>impulsa-overrides.json`) en lloc del fitxer; el fitxer de `data/` en fa de llavor la primera vegada. Credencials amb `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` i `AWS_REGION`. |
 | `STOCKCROWD_API_KEY` | Clau de l’organització a StockCrowd. Si hi és, Impulsa Talent es llegeix en directe; si no, de l’agregat del fitxer. |
 | `STOCKCROWD_URL` | API de StockCrowd. Per defecte, `https://api.stockcrowd.com`. |
 | `DONOR_EMAIL_HASH_KEY` | Clau secreta amb què es fa el hash (HMAC-SHA256) dels correus. Obligatòria amb StockCrowd, mínim 32 caràcters (`openssl rand -hex 32`). Ha de ser la mateixa a totes les instàncies i no s’ha de canviar: si canvia, els hashes ja no coincideixen. |

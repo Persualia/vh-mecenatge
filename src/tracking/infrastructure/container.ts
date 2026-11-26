@@ -4,7 +4,10 @@ import { CachedCampaignInsightsRepository } from "./cache/cached-campaign-insigh
 import { SaveDonorOverride } from "@/tracking/application/save-donor-override";
 import { SearchDonorsByEmail } from "@/tracking/application/search-donors-by-email";
 import { BundledImpulsaRepository } from "./impulsa/bundled-impulsa-repository";
+import { S3Client } from "@aws-sdk/client-s3";
 import { FileDonorOverridesRepository } from "./impulsa/file-donor-overrides-repository";
+import { OVERRIDES_FILE_NAME, S3DonorOverridesRepository } from "./impulsa/s3-donor-overrides-repository";
+import type { DonorOverridesRepository } from "@/tracking/application/ports/donor-overrides-repository";
 import { GraphClient } from "./meta/graph-client";
 import { MetaAdAccountRepository } from "./meta/meta-ad-account-repository";
 import { MetaCampaignInsightsRepository } from "./meta/meta-campaign-insights-repository";
@@ -74,6 +77,20 @@ function impulsaSource(insights: CampaignInsightsRepository, accountId: string):
   });
 }
 
+/**
+ * S3 when a bucket is configured, so the deployed app keeps no state of its own; otherwise the
+ * JSON file in data/. The file versioned in git seeds the object the first time.
+ * Credentials and region come from the standard AWS_* variables.
+ */
+function overridesSource(): DonorOverridesRepository {
+  const file = new FileDonorOverridesRepository();
+  const bucket = process.env.AWS_S3_BUCKET;
+  if (!bucket) return file;
+  const prefix = (process.env.AWS_S3_PATH ?? "").replace(/^\/+/, "");
+  const key = prefix && !prefix.endsWith("/") ? `${prefix}/${OVERRIDES_FILE_NAME}` : `${prefix}${OVERRIDES_FILE_NAME}`;
+  return new S3DonorOverridesRepository(new S3Client({}), bucket, key, () => file.load());
+}
+
 function build() {
   const accessToken = process.env.META_ACCESS_TOKEN;
   if (!accessToken) throw new Error("Falta META_ACCESS_TOKEN. Mireu el README: es llegeix del .env de les credencials compartides.");
@@ -84,7 +101,7 @@ function build() {
 
   const accountId = process.env.VHIR_AD_ACCOUNT_ID || VHIR_AD_ACCOUNT_ID;
   const impulsa = impulsaSource(insights, accountId);
-  const overrides = new FileDonorOverridesRepository();
+  const overrides = overridesSource();
 
   return {
     loadTrackingBoard: new LoadTrackingBoard(accounts, insights, impulsa, overrides, accountId),
