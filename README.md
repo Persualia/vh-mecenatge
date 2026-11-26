@@ -261,6 +261,9 @@ capa de hover.
 
 ## Lliurament
 
+- **Desplegament:** https://vh-mecenatge.albertperez.dev, al clúster albert-cluster. Cada push a
+  `main` construeix la imatge i ArgoCD la desplega. Detalls i posada en marxa a
+  [`docs/despliegue.md`](docs/despliegue.md).
 - **Enllaç de previsualització:** https://claude.ai/artifact/AUGVX1jFBcEeSwoDxudSRv
   Instantània estàtica del 25/11/2026 amb les mateixes xifres, el selector operatiu i la taula
   editable (els canvis s’hi veuen però no s’hi desen), per poder referenciar la demo a la

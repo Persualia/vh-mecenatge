@@ -1,0 +1,12 @@
+.git
+.github
+.next
+node_modules
+.env*
+data-font
+*ImpulsaTalent*.csv
+deploy
+docs
+preview
+coverage
+*.tsbuildinfo

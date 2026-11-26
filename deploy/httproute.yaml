@@ -1,0 +1,17 @@
+# Exposada pel Gateway compartit del clúster, que termina el TLS amb el certificat wildcard.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vh-mecenatge
+spec:
+  parentRefs:
+    - name: traefik-gateway
+      namespace: traefik
+      sectionName: websecure
+  hostnames:
+    - vh-mecenatge.albertperez.dev
+    # vh-mecenatge.persualia.com s'hi afegirà quan el DNS de cdmon i Cloudflare estiguin a punt.
+  rules:
+    - backendRefs:
+        - name: vh-mecenatge
+          port: 80

@@ -1,0 +1,17 @@
+# Manifests de vh-mecenatge per al clúster albert-cluster (netcup).
+# Una Application d'ArgoCD vigila aquesta carpeta a la branca main i la desplega tal qual.
+# El workflow .github/workflows/deploy.yaml n'actualitza el tag de la imatge a cada push.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vh-mecenatge
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - httproute.yaml
+  - env-sealed.yaml
+  - ghcr-pull-sealed.yaml
+
+images:
+  - name: ghcr.io/persualia/vh-mecenatge
+    newTag: main # el workflow el substitueix pel SHA de cada build

@@ -19,6 +19,8 @@ for (const dir of [resolve(process.cwd(), ".."), sharedCredentials]) {
 }
 
 const nextConfig: NextConfig = {
+  // A self-contained server in .next/standalone, for the Docker image.
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   experimental: {
