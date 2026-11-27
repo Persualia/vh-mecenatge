@@ -8,6 +8,7 @@ import { FileDonorOverridesRepository } from "./impulsa/file-donor-overrides-rep
 import { OVERRIDES_FILE_NAME, S3DonorOverridesRepository } from "./impulsa/s3-donor-overrides-repository";
 import type { DonorOverridesRepository } from "@/tracking/application/ports/donor-overrides-repository";
 import type { SnapshotStore } from "@/tracking/application/ports/snapshot-store";
+import { proxiedFetch } from "./stockcrowd/proxied-fetch";
 import { FileSnapshotStore } from "./snapshots/file-snapshot-store";
 import { S3SnapshotStore } from "./snapshots/s3-snapshot-store";
 import {
@@ -75,7 +76,13 @@ function impulsaSource(insights: CampaignInsightsRepository, accountId: string, 
   if (!apiKey) return new BundledImpulsaRepository();
 
   const campaignId = numberFromEnv("STOCKCROWD_CAMPAIGN_ID", IMPULSA_STOCKCROWD_CAMPAIGN);
-  const client = new StockCrowdClient(process.env.STOCKCROWD_URL || "https://api.stockcrowd.com", apiKey);
+  // Through Fixie's fixed IPs when its integration has set FIXIE_URL (Vercel); direct otherwise.
+  const proxyUrl = process.env.FIXIE_URL;
+  const client = new StockCrowdClient(
+    process.env.STOCKCROWD_URL || "https://api.stockcrowd.com",
+    apiKey,
+    proxyUrl ? proxiedFetch(proxyUrl) : fetch,
+  );
   const live = new StockCrowdDonationsRepository(client, campaignId, `StockCrowd · campanya ${campaignId}`, emailHashKey());
   const donations = new SnapshotDonationsRepository(live, snapshots, `stockcrowd-donations-${campaignId}`);
   return new LiveImpulsaRepository(donations, insights, {

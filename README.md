@@ -40,6 +40,7 @@ l’app s’obre per URL.
 | `AWS_S3_BUCKET`, `AWS_S3_PATH` | Si hi ha bucket, les correccions es desen a S3 (`<AWS_S3_PATH>impulsa-overrides.json`) en lloc del fitxer; el fitxer de `data/` en fa de llavor la primera vegada. L’última lectura de cada API també s’hi desa (`<AWS_S3_PATH>snapshots/`); sense bucket, a `data/snapshots/`. Credencials amb `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` i `AWS_REGION`. |
 | `STOCKCROWD_API_KEY` | Clau de l’organització a StockCrowd. Si hi és, Impulsa Talent es llegeix en directe; si no, de l’agregat del fitxer. |
 | `STOCKCROWD_URL` | API de StockCrowd. Per defecte, `https://api.stockcrowd.com`. |
+| `FIXIE_URL` | Proxy d’IP fixa per a les crides a StockCrowd (el posa la integració de Fixie a Vercel). Si no hi és, es crida directament. |
 | `DONOR_EMAIL_HASH_KEY` | Clau secreta amb què es fa el hash (HMAC-SHA256) dels correus. Obligatòria amb StockCrowd, mínim 32 caràcters (`openssl rand -hex 32`). Ha de ser la mateixa a totes les instàncies i no s’ha de canviar: si canvia, els hashes ja no coincideixen. |
 | `STOCKCROWD_CAMPAIGN_ID` | Campanya de StockCrowd d’Impulsa Talent. Per defecte, `27041` («Amb tu investiguem»). |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Client OAuth i refresh token amb accés a Google Ads. El client ha d’estar publicat («In production»): en mode «Testing» Google revoca el token als 7 dies. |
