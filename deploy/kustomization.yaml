@@ -14,4 +14,4 @@ resources:
 
 images:
   - name: ghcr.io/persualia/vh-mecenatge
-    newTag: 2eebbdbcd4a3e8f0d3ffd49fb07d6cee11d125f8
+    newTag: 72befb2bbbf7f1453f075881a5972b836d3a3610
