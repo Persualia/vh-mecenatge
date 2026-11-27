@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Correccions manuals del personal del VHIR: estat de la instància, no codi.
 # /data/
+
+# Darrera lectura de cada API quan no hi ha bucket: estat de la instància.
+/data/snapshots/

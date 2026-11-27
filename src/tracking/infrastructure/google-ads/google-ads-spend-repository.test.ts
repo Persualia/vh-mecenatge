@@ -32,7 +32,7 @@ describe("Google Ads spend", () => {
     const fetchImpl = vi.fn(async (url: string | URL | Request) =>
       String(url).includes("oauth2") ? json({ access_token: "at", expires_in: 3600 }) : json(stream),
     ) as unknown as typeof fetch;
-    const repo = new GoogleAdsSpendRepository(oauthWith(fetchImpl), { customerId: "360-759-6474", developerToken: "dev", loginCustomerId: "111-222-3333", apiVersion: "v26" }, 60_000, fetchImpl);
+    const repo = new GoogleAdsSpendRepository(oauthWith(fetchImpl), { customerId: "360-759-6474", developerToken: "dev", loginCustomerId: "111-222-3333", apiVersion: "v26" }, fetchImpl);
 
     await repo.spendByCampaign(RANGE);
     const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[1];
@@ -41,20 +41,11 @@ describe("Google Ads spend", () => {
     expect(JSON.parse(init.body).query).toContain("BETWEEN '2025-11-27' AND '2026-11-26'");
   });
 
-  it("reads once per period while the cache lasts", async () => {
-    const fetchImpl = vi.fn(async (url: string | URL | Request) =>
-      String(url).includes("oauth2") ? json({ access_token: "at", expires_in: 3600 }) : json(stream),
-    ) as unknown as typeof fetch;
-    const repo = new GoogleAdsSpendRepository(oauthWith(fetchImpl), { customerId: "3607596474", developerToken: "dev", apiVersion: "v26" }, 60_000, fetchImpl);
-    await Promise.all([repo.spendByCampaign(RANGE), repo.spendByCampaign(RANGE)]);
-    expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2);
-  });
-
   it("says what Google answered when it refuses", async () => {
     const fetchImpl = vi.fn(async (url: string | URL | Request) =>
       String(url).includes("oauth2") ? json({ access_token: "at" }) : json({ error: { message: "The developer token is only approved for test accounts." } }, 403),
     ) as unknown as typeof fetch;
-    const repo = new GoogleAdsSpendRepository(oauthWith(fetchImpl), { customerId: "3607596474", developerToken: "dev", apiVersion: "v26" }, 60_000, fetchImpl);
+    const repo = new GoogleAdsSpendRepository(oauthWith(fetchImpl), { customerId: "3607596474", developerToken: "dev", apiVersion: "v26" }, fetchImpl);
     await expect(repo.spendByCampaign(RANGE)).rejects.toThrow(/403: The developer token is only approved/);
   });
 

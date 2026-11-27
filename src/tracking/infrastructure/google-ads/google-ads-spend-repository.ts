@@ -22,32 +22,17 @@ const digits = (id: string) => id.replace(/\D/g, "");
 
 /**
  * Spend per campaign from the Google Ads API (GAQL over `searchStream`). Amounts come in
- * micros of the account's currency. The result is kept for a while, like Meta's.
+ * micros of the account's currency. Kept between reads by the snapshot in front of it.
  */
 export class GoogleAdsSpendRepository implements CampaignSpendRepository {
-  private readonly cache = new Map<string, { expires: number; value: Promise<{ currency: string; campaigns: CampaignSpend[] }> }>();
-
   constructor(
     private readonly oauth: GoogleOAuth,
     private readonly settings: GoogleAdsSettings,
-    private readonly ttlMs = 30 * 60_000,
     private readonly fetchImpl: typeof fetch = fetch,
-    private readonly now: () => number = Date.now,
   ) {}
 
-  spendByCampaign(range: DateRange): Promise<{ currency: string; campaigns: CampaignSpend[] }> {
+  async spendByCampaign(range: DateRange): Promise<{ currency: string; campaigns: CampaignSpend[] }> {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(range.since) || !/^\d{4}-\d{2}-\d{2}$/.test(range.until)) throw new Error("Període no vàlid per a Google Ads.");
-    const key = `${range.since}|${range.until}`;
-    const hit = this.cache.get(key);
-    if (hit && hit.expires > this.now()) return hit.value;
-
-    const value = this.read(range);
-    this.cache.set(key, { expires: this.now() + this.ttlMs, value });
-    value.catch(() => this.cache.delete(key));
-    return value;
-  }
-
-  private async read(range: DateRange) {
     const query =
       "SELECT customer.currency_code, campaign.name, metrics.cost_micros FROM campaign " +
       `WHERE segments.date BETWEEN '${range.since}' AND '${range.until}' AND metrics.cost_micros > 0`;

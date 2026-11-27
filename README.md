@@ -37,7 +37,7 @@ l’app s’obre per URL.
 | `VHIR_AD_ACCOUNT_ID` | Compte publicitari. Per defecte, `122669428442042` (Vall d’Hebron). |
 | `VHIR_CREDENTIALS_DIR` | Carpeta del `.env` compartit. Per defecte, `../../mcp-ads-persualia`. |
 | `VHIR_OVERRIDES_FILE` | On es desen les correccions manuals. Per defecte, `data/impulsa-overrides.json`. |
-| `AWS_S3_BUCKET`, `AWS_S3_PATH` | Si hi ha bucket, les correccions es desen a S3 (`<AWS_S3_PATH>impulsa-overrides.json`) en lloc del fitxer; el fitxer de `data/` en fa de llavor la primera vegada. Credencials amb `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` i `AWS_REGION`. |
+| `AWS_S3_BUCKET`, `AWS_S3_PATH` | Si hi ha bucket, les correccions es desen a S3 (`<AWS_S3_PATH>impulsa-overrides.json`) en lloc del fitxer; el fitxer de `data/` en fa de llavor la primera vegada. L’última lectura de cada API també s’hi desa (`<AWS_S3_PATH>snapshots/`); sense bucket, a `data/snapshots/`. Credencials amb `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` i `AWS_REGION`. |
 | `STOCKCROWD_API_KEY` | Clau de l’organització a StockCrowd. Si hi és, Impulsa Talent es llegeix en directe; si no, de l’agregat del fitxer. |
 | `STOCKCROWD_URL` | API de StockCrowd. Per defecte, `https://api.stockcrowd.com`. |
 | `DONOR_EMAIL_HASH_KEY` | Clau secreta amb què es fa el hash (HMAC-SHA256) dels correus. Obligatòria amb StockCrowd, mínim 32 caràcters (`openssl rand -hex 32`). Ha de ser la mateixa a totes les instàncies i no s’ha de canviar: si canvia, els hashes ja no coincideixen. |
@@ -195,10 +195,21 @@ Sobre les exclusions: de les 113 files de detall, 109 computen. Les 4 restants (
 columna «Quotes impagades» és buida a tot el fitxer, de manera que no resta res dels totals;
 a partir d’ara els impagats s’anoten a la taula, any per any.
 
-## Impulsa Talent en directe des de StockCrowd
+## Dades desades i «Actualitza»
 
-Amb `STOCKCROWD_API_KEY` configurada, les dades d’Impulsa Talent es llegeixen a cada càrrega
-(amb 5 minuts de memòria cau) de la campanya 27041 de StockCrowd, i la inversió, de les campanyes
+El quadre no espera les API en obrir-se: llegeix l’última còpia desada de cada font (comptes i
+insights de Meta, transaccions de StockCrowd, inversió de Google Ads), un JSON per font a
+`<AWS_S3_PATH>snapshots/` o, sense bucket, a `data/snapshots/`. Les còpies guarden el que retorna
+l’API, no el quadre calculat: les xifres que depenen del dia (quotes vençudes, socis actius) es
+recalculen a cada càrrega. El botó «Actualitza» torna a llegir totes les API i reescriu les còpies.
+Si una API falla, es manté la seva còpia anterior i el quadre avisa de quina font i de quan són les
+dades. Només quan encara no hi ha cap còpia d’una font (la primera vegada) es llegeix l’API en obrir.
+Les transaccions de StockCrowd es desen sense dades personals: el correu ja hi va com a hash.
+
+## Impulsa Talent des de StockCrowd
+
+Amb `STOCKCROWD_API_KEY` configurada, les dades d’Impulsa Talent es llegeixen de la campanya 27041
+de StockCrowd, i la inversió, de les campanyes
 `VAL ImpulsaTalent` a la Graph API de Meta i de les `PER ImpulsaTalent` a l’API de Google Ads. L’API està documentada a
 `https://api.stockcrowd.com/donors/swagger-ui/index.html`; la clau va a la capçalera `x-api-key`.
 
@@ -238,7 +249,7 @@ src/
 │       ├── impulsa/       # Lectura dels fitxers i escriptura de les correccions
 │       ├── stockcrowd/    # API de StockCrowd i mapatge de les transaccions
 │       ├── google-ads/    # OAuth i inversió per campanya de l’API de Google Ads
-│       ├── cache/         # Decorador en memòria del port d'insights (30 min)
+│       ├── snapshots/     # Còpia desada de cada API (S3 o data/snapshots/), davant dels adaptadors
 │       └── container.ts   # Composició
 ├── app/                   # Adaptador d'entrada: pàgina, /api/board i /api/donors
 └── components/

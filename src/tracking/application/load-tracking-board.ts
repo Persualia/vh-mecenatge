@@ -3,7 +3,8 @@ import type { AdAccount, DateRange, InsightsDataset } from "@/tracking/domain/da
 import type { DonorOverrides, DonorRecordsFile } from "@/tracking/domain/donors";
 import type { ImpulsaAggregate } from "@/tracking/domain/impulsa";
 import type { AdAccountRepository } from "./ports/ad-account-repository";
-import type { CampaignInsightsRepository, FetchOptions } from "./ports/campaign-insights-repository";
+import type { CampaignInsightsRepository } from "./ports/campaign-insights-repository";
+import type { FetchOptions, SourceRead } from "./ports/fetch-options";
 import type { ImpulsaRepository } from "./ports/impulsa-repository";
 import type { DonorOverridesRepository } from "./ports/donor-overrides-repository";
 
@@ -27,6 +28,8 @@ export interface TrackingBoard {
   overrides: DonorOverrides;
   /** A source that could not be read: the board is partial when there are any. */
   failures: SourceFailure[];
+  /** When each source was last read from its API: the board shows saved copies until a refresh. */
+  sources: SourceRead[];
   loadedAt: string;
 }
 
@@ -44,16 +47,18 @@ export class LoadTrackingBoard {
     private readonly accountId: string,
   ) {}
 
-  async execute(today: string, options?: FetchOptions): Promise<TrackingBoard> {
+  async execute(today: string, { fresh }: Pick<FetchOptions, "fresh"> = {}): Promise<TrackingBoard> {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) throw new InvalidRequestError("La data d’avui no és vàlida.");
     if (!/^\d+$/.test(this.accountId)) throw new InvalidRequestError("El compte publicitari configurat no és vàlid.");
 
     const window = dataWindow(today);
+    const reads: SourceRead[] = [];
+    const options: FetchOptions = { fresh, reads };
     const [account, meta, impulsa, donors, overrides] = await Promise.allSettled([
-      this.accounts.listAll().then((list) => list.find((a) => a.id === this.accountId) ?? null),
+      this.accounts.listAll(options).then((list) => list.find((a) => a.id === this.accountId) ?? null),
       this.insights.fetchDaily(this.accountId, window, options),
-      this.impulsa.load(today),
-      this.impulsa.loadRecords(today),
+      this.impulsa.load(today, options),
+      this.impulsa.loadRecords(today, options),
       this.overrides.load(),
     ]);
 
@@ -77,7 +82,18 @@ export class LoadTrackingBoard {
       donors: donors.status === "fulfilled" ? donors.value : null,
       overrides: overrides.status === "fulfilled" ? overrides.value : {},
       failures,
+      sources: uniqueByLabel(reads),
       loadedAt: new Date().toISOString(),
     };
   }
+}
+
+/** A source read twice in one load reports once; a read that came with an error wins. */
+function uniqueByLabel(reads: SourceRead[]): SourceRead[] {
+  const byLabel = new Map<string, SourceRead>();
+  for (const read of reads) {
+    const seen = byLabel.get(read.label);
+    if (!seen || (read.error && !seen.error)) byLabel.set(read.label, read);
+  }
+  return [...byLabel.values()];
 }

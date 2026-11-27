@@ -5,6 +5,7 @@ import { buildImpulsaAggregate, campaignSpend, sumCampaignSpend, type ImpulsaAgg
 import type { CampaignInsightsRepository } from "./ports/campaign-insights-repository";
 import type { CampaignSpendRepository } from "./ports/campaign-spend-repository";
 import type { DonationsRepository } from "./ports/donations-repository";
+import type { FetchOptions } from "./ports/fetch-options";
 import type { ImpulsaRepository } from "./ports/impulsa-repository";
 
 export interface LiveImpulsaSettings {
@@ -31,8 +32,8 @@ export class LiveImpulsaRepository implements ImpulsaRepository {
     private readonly settings: LiveImpulsaSettings,
   ) {}
 
-  async loadRecords(today: string): Promise<DonorRecordsFile> {
-    const records = donorRecordsFromDonations(await this.donations.list(), today);
+  async loadRecords(today: string, options?: FetchOptions): Promise<DonorRecordsFile> {
+    const records = donorRecordsFromDonations(await this.donations.list(options), today);
     return { generatedAt: today, sourceSha256: "", defaultChannel: "meta", records };
   }
 
@@ -40,12 +41,12 @@ export class LiveImpulsaRepository implements ImpulsaRepository {
     return refsOfDonor(await this.donations.list(), this.donations.keyFor(email), today);
   }
 
-  async load(today: string): Promise<ImpulsaAggregate> {
+  async load(today: string, options?: FetchOptions): Promise<ImpulsaAggregate> {
     const window = dataWindow(today);
     const [file, dataset, google] = await Promise.all([
-      this.loadRecords(today),
-      this.insights.fetchDaily(this.settings.accountId, window),
-      this.settings.googleAds?.spendByCampaign(window) ?? null,
+      this.loadRecords(today, options),
+      this.insights.fetchDaily(this.settings.accountId, window, options),
+      this.settings.googleAds?.spendByCampaign(window, options) ?? null,
     ]);
     if (google && google.currency !== "EUR") throw new Error(`El compte de Google Ads és en ${google.currency}; el quadre espera euros.`);
     return buildImpulsaAggregate({

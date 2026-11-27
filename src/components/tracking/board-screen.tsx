@@ -1,7 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TrackingBoard } from "@/tracking/application/load-tracking-board";
@@ -17,8 +16,14 @@ async function fetchBoard(fresh: boolean): Promise<TrackingBoard> {
 }
 
 export function BoardScreen() {
-  const [fresh, setFresh] = useState(false);
-  const query = useQuery({ queryKey: ["board", today(), fresh], queryFn: () => fetchBoard(fresh) });
+  const queryClient = useQueryClient();
+  const key = ["board", today()];
+  // Opening reads the saved copies; only "Actualitza" asks the APIs, and its answer replaces them.
+  const query = useQuery({ queryKey: key, queryFn: () => fetchBoard(false) });
+  const refresh = useMutation({
+    mutationFn: () => fetchBoard(true),
+    onSuccess: (board) => queryClient.setQueryData(key, board),
+  });
 
   if (query.isPending) {
     return (
@@ -31,7 +36,7 @@ export function BoardScreen() {
           ))}
         </div>
         <Skeleton className="h-64 w-full" />
-        <p className="text-sm text-muted-foreground">Llegint un any de dades diàries de Meta Ads…</p>
+        <p className="text-sm text-muted-foreground">Llegint les dades desades…</p>
       </div>
     );
   }
@@ -50,11 +55,9 @@ export function BoardScreen() {
   return (
     <Board
       board={query.data}
-      refreshing={query.isFetching}
-      onRefresh={() => {
-        setFresh(true);
-        query.refetch();
-      }}
+      refreshing={refresh.isPending}
+      refreshError={refresh.error?.message ?? null}
+      onRefresh={() => refresh.mutate()}
     />
   );
 }

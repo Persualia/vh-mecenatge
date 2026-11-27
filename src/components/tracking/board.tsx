@@ -16,10 +16,24 @@ import { DonorsTable } from "./donors-table";
 import { ImpulsaView } from "./impulsa-view";
 import { LeadsView } from "./leads-view";
 
+const dateTime = (iso: string) => new Date(iso).toLocaleString("ca-ES", { dateStyle: "short", timeStyle: "short" });
+/** The board is as old as its oldest source. */
+const oldest = (sources: { savedAt: string }[]) => sources.map((s) => s.savedAt).sort()[0];
+
 const SOURCE_LABEL = { meta: "Meta Ads", impulsa: "Socis i donatius" } as const;
 type Tab = "resum" | "donants";
 
-export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; onRefresh: () => void; refreshing: boolean }) {
+export function Board({
+  board,
+  onRefresh,
+  refreshing,
+  refreshError,
+}: {
+  board: TrackingBoard;
+  onRefresh: () => void;
+  refreshing: boolean;
+  refreshError: string | null;
+}) {
   const { campaigns, outOfScope } = useMemo(() => buildCampaigns({ dataset: board.meta }), [board.meta]);
 
   const [selected, setSelected] = useState(campaigns[0]?.key ?? "");
@@ -121,7 +135,9 @@ export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; 
             <span>
               {board.account ? `${board.account.name} · ${board.account.currency}` : "Compte de Meta Ads"}
               <br />
-              Lectura {new Date(board.loadedAt).toLocaleString("ca-ES", { dateStyle: "short", timeStyle: "short" })}
+              <span title={board.sources.map((s) => `${s.label}: ${dateTime(s.savedAt)}`).join("\n")}>
+                {board.sources.length ? `Dades llegides ${dateTime(oldest(board.sources))}` : `Lectura ${dateTime(board.loadedAt)}`}
+              </span>
             </span>
             <Button variant="outline" size="sm" onClick={onRefresh} disabled={refreshing} className="flex-none">
               <RefreshCwIcon className={refreshing ? "animate-spin" : ""} aria-hidden="true" />
@@ -146,6 +162,24 @@ export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; 
         </div>
         {campaign.aliasNote && <p className="max-w-3xl rounded-lg bg-muted/60 p-3 text-xs leading-relaxed text-ink-secondary">{campaign.aliasNote}</p>}
       </section>
+
+      {refreshError && (
+        <Alert variant="destructive">
+          <AlertTitle>No s’ha pogut actualitzar</AlertTitle>
+          <AlertDescription>{refreshError} Es continuen mostrant les dades desades.</AlertDescription>
+        </Alert>
+      )}
+
+      {board.sources
+        .filter((source) => source.error)
+        .map((source) => (
+          <Alert key={source.label}>
+            <AlertTitle>
+              {source.label}: dades del {dateTime(source.savedAt)}
+            </AlertTitle>
+            <AlertDescription>{source.error}</AlertDescription>
+          </Alert>
+        ))}
 
       {board.failures.map((failure) => (
         <Alert key={failure.source} variant="destructive">
@@ -183,7 +217,7 @@ export function Board({ board, onRefresh, refreshing }: { board: TrackingBoard; 
 
       <footer className="flex flex-col gap-1 border-t pt-4 text-xs text-muted-foreground">
         <p>
-          Demo de seguiment amb dades reals: Meta Ads en directe des de la Graph API i Impulsa Talent {board.impulsa?.source.kind === "live" ? "en directe des de StockCrowd" : "des de l’agregat del fitxer"}. Es carrega un any de dades diàries ({isoToCa(board.window.since)} – {isoToCa(board.window.until)}) i els
+          Demo de seguiment amb dades reals: Meta Ads des de la Graph API i Impulsa Talent {board.impulsa?.source.kind === "live" ? "des de StockCrowd" : "des de l’agregat del fitxer"}. El quadre s’obre amb l’última lectura desada de cada API; «Actualitza» les torna a llegir. Es carrega un any de dades diàries ({isoToCa(board.window.since)} – {isoToCa(board.window.until)}) i els
           càlculs es fan al navegador, de manera que canviar de campanya, de període o d’agrupació és immediat.
         </p>
         {outOfScope > 0 && <p>El compte de Meta té {int(outOfScope)} campanyes més que ara no entren en l’abast de la demo.</p>}

@@ -16,7 +16,7 @@ ArgoCD (albert-cluster) ──vigila deploy/ en main──► aplica Deployment,
 | Manifests | `deploy/` (Kustomize) |
 | Pipeline | `.github/workflows/deploy.yaml` |
 | Secretos | `deploy/*-sealed.yaml`, generados con `scripts/seal-secrets.sh` |
-| Correcciones manuales | S3 (`AWS_S3_BUCKET` / `AWS_S3_PATH`); el pod no guarda estado |
+| Correcciones manuales y última lectura de cada API | S3 (`AWS_S3_BUCKET` / `AWS_S3_PATH`, copias en `snapshots/`); el pod no guarda estado |
 
 ## Secretos
 
